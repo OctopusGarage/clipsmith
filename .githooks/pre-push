@@ -9,7 +9,7 @@ cd "$ROOT_DIR"
 ./script/check-health.sh
 
 if command -v gitleaks >/dev/null 2>&1; then
-  gitleaks git . --config .gitleaks.toml --redact -v
+  gitleaks git . --config .gitleaks.toml --redact -v --platform github
 else
   echo "gitleaks not installed; skipping local secret scan. CI runs gitleaks." >&2
 fi

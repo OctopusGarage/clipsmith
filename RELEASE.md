@@ -10,7 +10,7 @@ This project currently distributes from GitHub. Users install the CLI with
 git status -sb
 git pull --ff-only
 ./script/check-health.sh
-gitleaks git . --config .gitleaks.toml --redact -v
+gitleaks git . --config .gitleaks.toml --redact -v --platform github
 ```
 
 The working tree should be clean before tagging.
