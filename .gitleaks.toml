@@ -1,0 +1,4 @@
+# Gitleaks config. Extend the default ruleset and keep the allowlist empty unless
+# a historical secret is confirmed revoked and intentionally retained.
+[extend]
+useDefault = true

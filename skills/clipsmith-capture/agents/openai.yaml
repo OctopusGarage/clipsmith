@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: Clipsmith Capture
+  description: Route a URL or local media input through Clipsmith provider skills and produce a validated capture bundle.
+  default_prompt: Use this skill when the user wants to capture, download, save, or OCR a URL or local media item into a Clipsmith bundle. Start a capture job with uv run clipsmith capture start, route to the returned provider skill, normalize raw output into a bundle with capture.json, validate it, then finalize the job. Do not write knowledge records or sink into Alcove unless explicitly requested.

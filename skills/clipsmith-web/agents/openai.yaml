@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: Clipsmith Web Capture
+  description: Capture a generic public web page into a validated Clipsmith web bundle.
+  default_prompt: Use this skill for generic web pages when no platform-specific Clipsmith provider matches. Run the existing extractor under skills/clipsmith-web, do not invent a replacement workflow, and produce a bundle containing capture.json, article.md, and summary.md. Stop and report login walls, rate limits, or bot protection rather than fabricating content.

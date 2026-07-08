@@ -1,0 +1,47 @@
+name: clipsmith-xhs
+description: Browser-only automation skill to export Xiaohongshu post assets into a local folder, including post.md, images, optional video, and optional comments export.
+executor: scripts/run.ts
+inputs:
+  post_url:
+    type: string
+    required: false
+    description: Full Xiaohongshu post URL (for example, /explore/<note_id>). If omitted, runner prompts interactively.
+  output_dir:
+    type: string
+    required: false
+    default: ./downloads/xhs
+    description: Target local directory where downloaded assets and metadata files will be stored. If omitted, runner prompts with default.
+  profile_dir:
+    type: string
+    required: false
+    default: ~/.chrome-labali-no-proxy
+    description: Chrome user-data-dir used by the unified open -na Google Chrome startup command.
+  cdp_port:
+    type: string
+    required: false
+    default: "9223"
+    description: Chrome DevTools remote-debugging port; default 9223.
+  proxy_mode:
+    type: string
+    required: false
+    default: none
+    description: Chrome proxy mode for auto-launched Chrome. Use none to pass --no-proxy-server, system to inherit the system proxy, or custom with proxy_server.
+  proxy_server:
+    type: string
+    required: false
+    description: Proxy server passed to Chrome as --proxy-server when proxy_mode=custom.
+  timeout_ms:
+    type: string
+    required: false
+    default: "90000"
+    description: Navigation and extraction timeout in milliseconds.
+  overwrite:
+    type: boolean
+    required: false
+    default: false
+    description: Overwrite existing files with the same generated names if true.
+  include_comments:
+    type: boolean
+    required: false
+    default: false
+    description: Export post comments into comments.json and comments.md when true.

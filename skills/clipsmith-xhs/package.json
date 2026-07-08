@@ -1,0 +1,10 @@
+{
+  "name": "clipsmith-xhs",
+  "private": true,
+  "dependencies": {
+    "playwright": "^1.61.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

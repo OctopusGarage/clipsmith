@@ -1,0 +1,5 @@
+# pnpm-lock.yaml placeholder
+# The skill's .npmrc sets ignore-workspace=true, which prevents pnpm from generating
+# individual lockfiles. Dependencies are managed by the repo root pnpm-lock.yaml.
+
+lockfileVersion: 5.3

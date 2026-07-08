@@ -1,0 +1,20 @@
+name: clipsmith-ocr
+description: Extract text from local images on macOS using native Vision.framework OCR via pyobjc, with Chinese+English defaults and optional text-file output.
+executor: scripts/run.ts
+inputs:
+  image_path:
+    type: string
+    required: true
+    description: Source image file path on local disk.
+  output_text:
+    type: string
+    required: false
+    description: Optional output text file path.
+  languages:
+    type: string
+    required: false
+    description: Comma-separated OCR languages, default zh-Hans,zh-Hant,en.
+  recognition_level:
+    type: string
+    required: false
+    description: OCR recognition level, accurate or fast. Default accurate.

@@ -1,0 +1,17 @@
+{
+  "schema": "clipsmith.capture_bundle.v1",
+  "id": "20260707-invalid",
+  "platform": "xhs",
+  "source_url": "https://www.xiaohongshu.com/explore/abc",
+  "canonical_url": "https://www.xiaohongshu.com/explore/abc",
+  "title": "Invalid XHS Post",
+  "author": "",
+  "published_at": "",
+  "captured_at": "2026-07-07T15:30:00+08:00",
+  "content_files": [
+    {"path": "summary.md", "kind": "summary", "required_for_review": true}
+  ],
+  "assets": [],
+  "warnings": [],
+  "status": "complete"
+}

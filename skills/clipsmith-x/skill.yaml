@@ -1,0 +1,28 @@
+name: clipsmith-x
+description: Browser-only automation skill to export X (Twitter) post assets into a local folder, including post.md with expanded URLs (t.co shortlinks resolved to full links), images, and optional video.
+executor: scripts/run.ts
+inputs:
+  post_url:
+    type: string
+    required: false
+    description: Full x.com post URL. If omitted, runner prompts interactively.
+  output_dir:
+    type: string
+    required: false
+    default: ~/Downloads/x
+    description: Target local directory where downloaded assets and metadata files will be stored.
+  cdp_port:
+    type: string
+    required: false
+    default: "9222"
+    description: Chrome DevTools remote-debugging port; default 9222.
+  timeout_ms:
+    type: string
+    required: false
+    default: "90000"
+    description: Navigation and extraction timeout in milliseconds.
+  overwrite:
+    type: boolean
+    required: false
+    default: false
+    description: Overwrite existing files with the same generated names if true.

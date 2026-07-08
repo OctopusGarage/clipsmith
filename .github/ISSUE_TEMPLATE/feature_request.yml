@@ -1,0 +1,36 @@
+name: Feature Request
+description: Suggest a Clipsmith provider, sink, workflow, or bundle-contract improvement
+labels: ["needs-triage"]
+body:
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: What capture or workflow problem are you trying to solve?
+      placeholder: "I want to capture..."
+    validations:
+      required: true
+  - type: textarea
+    id: desired
+    attributes:
+      label: Desired behaviour
+      description: What should Clipsmith do?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - provider
+        - bundle contract
+        - validation
+        - sink
+        - agent skill
+        - CI or quality gate
+        - documentation
+        - other
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

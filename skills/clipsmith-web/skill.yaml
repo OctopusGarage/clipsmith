@@ -1,0 +1,13 @@
+name: clipsmith-web
+description: Fetch a generic public web page and normalize it into a Clipsmith bundle.
+executor: scripts/run.ts
+inputs:
+  url:
+    type: string
+    required: true
+    description: Source web page URL.
+  output_dir:
+    type: string
+    required: false
+    default: ~/Downloads/clipsmith-web
+    description: Directory where the generated bundle folder is written.

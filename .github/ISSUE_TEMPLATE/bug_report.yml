@@ -1,0 +1,60 @@
+name: Bug Report
+description: Report a Clipsmith capture, bundle, or sink failure
+labels: ["needs-triage"]
+body:
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Capture platform
+      options:
+        - xhs
+        - x
+        - wechat
+        - web
+        - image-ocr
+        - sink
+        - cli
+        - other
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS and version
+      placeholder: "macOS 15.6 / Ubuntu 24.04 / other"
+    validations:
+      required: true
+  - type: textarea
+    id: target
+    attributes:
+      label: Capture target
+      description: Paste the URL or describe the local file. Remove private query tokens if needed.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. uv run clipsmith capture start ...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Bundle validation output
+      description: Paste `uv run clipsmith validate-bundle <bundle_dir> --json`.
+      render: json
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true

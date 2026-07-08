@@ -1,0 +1,20 @@
+{
+  "schema": "clipsmith.capture_bundle.v1",
+  "id": "20260707-example-xhs",
+  "platform": "xhs",
+  "source_url": "https://www.xiaohongshu.com/explore/abc",
+  "canonical_url": "https://www.xiaohongshu.com/explore/abc",
+  "title": "Example XHS Post",
+  "author": "Example Author",
+  "published_at": "2026-07-07",
+  "captured_at": "2026-07-07T15:30:00+08:00",
+  "content_files": [
+    {"path": "summary.md", "kind": "summary", "required_for_review": true},
+    {"path": "post.md", "kind": "post", "required_for_review": true}
+  ],
+  "assets": [
+    {"path": "image_01.bin", "kind": "image"}
+  ],
+  "warnings": [],
+  "status": "complete"
+}

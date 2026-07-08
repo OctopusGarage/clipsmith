@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: Clipsmith WeChat Capture
+  description: Export a WeChat public account article through the existing browser automation runner, then normalize article.md, article.mhtml, and embedded media into a Clipsmith bundle.
+  default_prompt: Use this skill for WeChat public account article URLs. Invoke the existing scripts/run.ts runner, never write replacement Playwright code, reuse the required Chrome CDP session, and normalize raw output into a wechat Clipsmith bundle with summary.md and capture.json before validation.
