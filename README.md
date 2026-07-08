@@ -32,9 +32,15 @@ Install CLI directly from GitHub:
 ```bash
 uv tool install --force git+https://github.com/OctopusGarage/clipsmith.git
 clipsmith --version
+clipsmith install --all
+clipsmith doctor
 ```
 
-Install CLI plus Claude Code/Codex skills from a clone:
+This installs the CLI, links bundled skills into Claude Code and Codex, then
+checks local runtime dependencies. Restart Claude Code or Codex after installing
+skills.
+
+Source clone install is still supported:
 
 ```bash
 git clone https://github.com/OctopusGarage/clipsmith.git
@@ -42,8 +48,8 @@ cd clipsmith
 ./install.sh --all
 ```
 
-See [INSTALL.md](INSTALL.md) for CLI-only, skills-only, copy mode, and uninstall
-options.
+See [INSTALL.md](INSTALL.md) for target-specific installs, copy mode, doctor
+checks, and uninstall options.
 
 ## Capture Flow
 

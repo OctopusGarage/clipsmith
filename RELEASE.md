@@ -1,8 +1,8 @@
 # Release Clipsmith
 
 This project currently distributes from GitHub. Users install the CLI with
-`uv tool install git+https://github.com/OctopusGarage/clipsmith.git` and install
-skills from a cloned repository with `./install.sh`.
+`uv tool install git+https://github.com/OctopusGarage/clipsmith.git`, then run
+`clipsmith install --all` to install bundled Claude Code and Codex skills.
 
 ## Preflight
 

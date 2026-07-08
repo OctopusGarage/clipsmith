@@ -8,6 +8,14 @@ from clipsmith import __version__
 from clipsmith.bundle import BundleRepository
 from clipsmith.capture import finalize_capture_job, start_capture_job
 from clipsmith.errors import ClipsmithError
+from clipsmith.installation import (
+    InstallOptions,
+    doctor_checks,
+    doctor_exit_code,
+    doctor_json,
+    install_skills,
+    print_doctor,
+)
 from clipsmith.providers import ProviderInfo, ProviderRegistry
 from clipsmith.sinks import AlcoveInboxSink, DirectorySink
 
@@ -71,6 +79,23 @@ def build_parser() -> argparse.ArgumentParser:
     alcove_parser.add_argument(
         "--json", action="store_true", help="Print sink result as JSON"
     )
+
+    install_parser = subparsers.add_parser(
+        "install", help="Install Clipsmith skills into local agent targets"
+    )
+    _add_install_options(install_parser)
+
+    uninstall_parser = subparsers.add_parser(
+        "uninstall", help="Remove Clipsmith skill links from local agent targets"
+    )
+    _add_install_options(uninstall_parser)
+
+    doctor_parser = subparsers.add_parser(
+        "doctor", help="Check local Clipsmith runtime dependencies"
+    )
+    doctor_parser.add_argument(
+        "--json", action="store_true", help="Print checks as JSON"
+    )
     return parser
 
 
@@ -89,6 +114,12 @@ def main(argv: list[str] | None = None) -> int:
             return _handle_validate_bundle(args)
         if args.command == "sink":
             return _handle_sink(args)
+        if args.command == "install":
+            return _handle_install(args)
+        if args.command == "uninstall":
+            return _handle_uninstall(args)
+        if args.command == "doctor":
+            return _handle_doctor(args)
     except ClipsmithError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -162,6 +193,56 @@ def _handle_sink(args: argparse.Namespace) -> int:
     else:
         print(f"{result['status']}: {result['path']}")
     return 0
+
+
+def _handle_install(args: argparse.Namespace) -> int:
+    for line in install_skills(_install_options(args, action="install")):
+        print(line)
+    return 0
+
+
+def _handle_uninstall(args: argparse.Namespace) -> int:
+    for line in install_skills(_install_options(args, action="uninstall")):
+        print(line)
+    return 0
+
+
+def _handle_doctor(args: argparse.Namespace) -> int:
+    checks = doctor_checks()
+    if args.json:
+        print(doctor_json(checks))
+    else:
+        for line in print_doctor(checks):
+            print(line)
+    return doctor_exit_code(checks)
+
+
+def _add_install_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--claude", action="store_true", help="Target Claude Code skills only"
+    )
+    parser.add_argument("--codex", action="store_true", help="Target Codex skills only")
+    parser.add_argument(
+        "--all", action="store_true", help="Target both Claude Code and Codex"
+    )
+    parser.add_argument(
+        "--copy", action="store_true", help="Copy skills instead of symlinking"
+    )
+    parser.add_argument("--only", help="Install/uninstall only comma-separated skills")
+    parser.add_argument(
+        "--skip", help="Install/uninstall all except comma-separated skills"
+    )
+
+
+def _install_options(args: argparse.Namespace, *, action: str) -> InstallOptions:
+    return InstallOptions(
+        action=action,
+        claude=args.all or args.claude,
+        codex=args.all or args.codex,
+        copy=args.copy,
+        only=args.only,
+        skip=args.skip,
+    )
 
 
 def _provider_to_dict(provider: ProviderInfo) -> dict[str, object]:
