@@ -2,4 +2,4 @@ version: 1
 interface:
   display_name: Clipsmith macOS Image OCR
   description: Extract text from local images on macOS using native Vision.framework OCR, then normalize OCR output into a Clipsmith bundle when part of a capture flow.
-  default_prompt: Use this skill for local image OCR on macOS. Invoke scripts/run.ts instead of calling Python directly. Only accept local image paths, write OCR text to stdout or output_text, and when used in a Clipsmith capture flow create post.md, summary.md, capture.json, and keep the OCR image as a separate ocr-image asset when it should be preserved before validation.
+  default_prompt: Use this skill for local image OCR on macOS. Invoke scripts/run.ts instead of calling Python directly. Only accept local image paths, write OCR text to stdout or output_text, and when used in a Clipsmith capture flow create ocr.md with the raw OCR transcript, post.md, summary.md, capture.json, and keep the OCR image as a separate ocr-image asset when it should be preserved before validation. Declare ocr.md in capture.json.content_files with kind ocr-text.

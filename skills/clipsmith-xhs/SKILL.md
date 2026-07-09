@@ -40,13 +40,17 @@ into a bundle:
 
 1. Keep `post.md` in the bundle directory; do not copy downloaded media,
    comments, or comment images into the final bundle.
-2. Create `summary.md` from the captured post text and OCR/comment context when
+2. If OCR is performed for any post image, write the raw OCR transcript to
+   `ocr.md`. Preserve per-image boundaries with headings such as
+   `## Image 001`; do not discard OCR text after using it for summarization.
+3. Create `summary.md` from the captured post text and OCR/comment context when
    available.
-3. Write `capture.json` with schema `clipsmith.capture_bundle.v1`, platform
+4. Write `capture.json` with schema `clipsmith.capture_bundle.v1`, platform
    `xhs`, source/canonical URL, title/author/published metadata when available,
-   `content_files` entries for `summary.md` and `post.md`, an empty `assets`
-   array, warnings, and status.
-4. Run `clipsmith validate-bundle "<bundle_dir>" --json`.
+   `content_files` entries for `summary.md` and `post.md`, plus an `ocr.md`
+   entry with `kind: "ocr-text"` when OCR ran, an empty `assets` array,
+   warnings, and status.
+5. Run `clipsmith validate-bundle "<bundle_dir>" --json`.
 
 Do not call `clipsmith capture finalize` until `capture.json` exists and
 validation succeeds.

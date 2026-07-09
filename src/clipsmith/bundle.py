@@ -12,7 +12,7 @@ from clipsmith.errors import BundleError
 BUNDLE_SCHEMA = "clipsmith.capture_bundle.v1"
 VALID_STATUSES = {"complete", "partial", "failed", "needs_manual_action"}
 CAPTURE_FILE = "capture.json"
-ALLOWED_CONTENT_FILE_PATHS = {"post.md", "summary.md"}
+ALLOWED_CONTENT_FILE_PATHS = {"post.md", "summary.md", "ocr.md", "ocr.txt"}
 ALLOWED_OCR_IMAGE_ASSET_KINDS = {"ocr-image"}
 REQUIRED_FIELDS = (
     "schema",
@@ -176,7 +176,8 @@ class BundleRepository:
                         kind="unsupported_content_file",
                         path=content_file.path,
                         message=(
-                            "Only post.md and summary.md content files are allowed: "
+                            "Only post.md, summary.md, ocr.md, and ocr.txt "
+                            "content files are allowed: "
                             f"{content_file.path}"
                         ),
                     )

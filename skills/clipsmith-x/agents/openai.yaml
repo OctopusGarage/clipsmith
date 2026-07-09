@@ -1,5 +1,5 @@
 version: 1
 interface:
   display_name: Clipsmith X Capture
-  description: Export X/Twitter post text through the existing browser automation runner, then normalize post.md and summary.md into a Clipsmith bundle.
-  default_prompt: Use this skill for X or Twitter post URLs. Invoke the existing scripts/run.ts runner, never substitute custom browser automation, reuse the authenticated Chrome CDP session, preserve target post text, resolve t.co links as required, and normalize output into an x Clipsmith bundle containing only capture.json, post.md, and summary.md before validation.
+  description: Export X/Twitter post text through the existing browser automation runner, then normalize post.md, summary.md, and any OCR transcript into a Clipsmith bundle.
+  default_prompt: Use this skill for X or Twitter post URLs. Invoke the existing scripts/run.ts runner, never substitute custom browser automation, reuse the authenticated Chrome CDP session, preserve target post text, resolve t.co links as required, and normalize output into an x Clipsmith bundle containing capture.json, post.md, summary.md, and ocr.md when OCR text was produced before validation. Do not discard OCR text after summarizing it; declare ocr.md in capture.json.content_files with kind ocr-text.

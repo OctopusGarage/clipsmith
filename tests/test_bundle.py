@@ -83,11 +83,12 @@ def test_unreferenced_bundle_file_is_reported(tmp_path):
     ]
 
 
-def test_only_post_summary_and_ocr_image_assets_are_allowed(tmp_path):
+def test_post_summary_ocr_text_and_ocr_image_assets_are_allowed(tmp_path):
     root = tmp_path / "bundle"
     root.mkdir()
     (root / "post.md").write_text("# OCR Text\n", encoding="utf-8")
     (root / "summary.md").write_text("# Summary\n", encoding="utf-8")
+    (root / "ocr.md").write_text("# OCR Transcript\n\nRaw text", encoding="utf-8")
     (root / "ocr-image.jpg").write_bytes(b"ocr image")
     (root / "capture.json").write_text(
         json.dumps(
@@ -103,6 +104,11 @@ def test_only_post_summary_and_ocr_image_assets_are_allowed(tmp_path):
                         "required_for_review": True,
                     },
                     {"path": "post.md", "kind": "post", "required_for_review": True},
+                    {
+                        "path": "ocr.md",
+                        "kind": "ocr-text",
+                        "required_for_review": True,
+                    },
                 ],
                 "assets": [{"path": "ocr-image.jpg", "kind": "ocr-image"}],
                 "warnings": [],
@@ -189,7 +195,10 @@ def test_unsupported_content_file_is_reported(tmp_path):
         {
             "kind": "unsupported_content_file",
             "path": "article.md",
-            "message": "Only post.md and summary.md content files are allowed: article.md",
+            "message": (
+                "Only post.md, summary.md, ocr.md, and ocr.txt content files "
+                "are allowed: article.md"
+            ),
         }
     ]
 

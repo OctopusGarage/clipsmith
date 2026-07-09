@@ -89,10 +89,14 @@ Typical bundle:
   capture.json
   post.md
   summary.md
+  ocr.md      # present when OCR text was produced
 ```
 
-For image OCR captures, the original OCR picture may also be preserved as a
-separate `ocr-image` asset.
+When OCR is performed during capture, the raw OCR transcript must be preserved
+as `ocr.md` or `ocr.txt` and declared in `capture.json.content_files` with
+`kind: "ocr-text"`. `summary.md` may summarize OCR output, but it must not be
+the only place where OCR text is stored. For image OCR captures, the original
+OCR picture may also be preserved as a separate `ocr-image` asset.
 
 Sinks:
 

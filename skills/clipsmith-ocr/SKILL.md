@@ -75,13 +75,15 @@ The OCR runner extracts text to stdout or `output_text`. Before finalizing a
 Clipsmith capture job, run the `raw-output-to-capture.json` normalization step
 by creating a bundle directory containing:
 
-- `post.md` with the OCR text.
+- `ocr.md` with the raw OCR text. This is mandatory when OCR text was produced.
+- `post.md` with the OCR text or source metadata for consumers that expect a
+  post-like primary file.
 - `summary.md`.
 - The original OCR image as a separate file when it should be preserved.
 - `capture.json` with schema `clipsmith.capture_bundle.v1`, platform
-  `image-ocr`, the local source path, `content_files` entries for
-  `post.md` and `summary.md`, `assets` entries only for OCR image files with
-  kind `ocr-image`, warnings, and status.
+  `image-ocr`, the local source path, `content_files` entries for `summary.md`,
+  `post.md`, and `ocr.md` with `kind: "ocr-text"`, `assets` entries only for
+  OCR image files with kind `ocr-image`, warnings, and status.
 
 Run `clipsmith validate-bundle "<bundle_dir>" --json` before finalizing.
 

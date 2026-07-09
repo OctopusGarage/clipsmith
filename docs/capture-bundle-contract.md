@@ -1,9 +1,10 @@
 # Capture Bundle Contract
 
 A Clipsmith bundle is a portable directory with `capture.json`, `post.md`, and
-`summary.md`. Image OCR captures may also keep the OCR source picture as a
-separate file. Consumers should read `capture.json`, not infer meaning from
-filenames.
+`summary.md`. When OCR is performed during capture, the raw OCR transcript must
+be preserved as `ocr.md` or `ocr.txt` and declared in `content_files`. Image OCR
+captures may also keep the OCR source picture as a separate file. Consumers
+should read `capture.json`, not infer meaning from filenames.
 
 Schema: `clipsmith.capture_bundle.v1`.
 
@@ -31,7 +32,7 @@ Common optional fields:
 `content_files` entries:
 
 - `path`: relative path inside the bundle
-- `kind`: `summary` or `post`
+- `kind`: `summary`, `post`, or `ocr-text`
 - `required_for_review`: whether the file must exist
 
 `assets` entries:
@@ -44,6 +45,7 @@ Final bundle directories may contain only:
 - `capture.json`
 - `post.md`
 - `summary.md`
+- `ocr.md` or `ocr.txt` when OCR text was produced during capture
 - OCR image files referenced from `assets` with kind `ocr-image`
 
 Paths must stay inside the bundle. Absolute paths and `..` traversal are
@@ -79,3 +81,16 @@ Exit code `0` means valid. Exit code `1` means invalid or incomplete.
   "status": "complete"
 }
 ```
+
+## OCR Text Preservation
+
+OCR text is source material, not just summary context. If a provider or agent
+runs OCR for a post, article, or local image, it must write the raw OCR result to
+`ocr.md` or `ocr.txt`, then add a `content_files` entry:
+
+```json
+{"path": "ocr.md", "kind": "ocr-text", "required_for_review": true}
+```
+
+`summary.md` may quote or summarize OCR output, but it must not be the only
+place where OCR text is stored.
