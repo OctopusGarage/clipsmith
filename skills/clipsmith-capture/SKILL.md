@@ -26,7 +26,8 @@ post, article, or local media item into a Clipsmith bundle.
 4. The platform skill may first run a copied downloader that produces raw
    assets. Before returning, it must perform the `raw-output-to-capture.json`
    normalization step: convert that output into a bundle directory containing
-   `capture.json` plus the captured content files/assets.
+   only `capture.json`, `post.md`, `summary.md`, plus separate OCR image files
+   when preserving a source image for an image OCR capture.
 5. Validate and finalize:
 
    ```bash

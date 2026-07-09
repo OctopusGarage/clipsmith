@@ -12,9 +12,7 @@
     {"path": "summary.md", "kind": "summary", "required_for_review": true},
     {"path": "post.md", "kind": "post", "required_for_review": true}
   ],
-  "assets": [
-    {"path": "image_01.bin", "kind": "image"}
-  ],
+  "assets": [],
   "warnings": [],
   "status": "complete"
 }

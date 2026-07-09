@@ -89,8 +89,10 @@ Typical bundle:
   capture.json
   post.md
   summary.md
-  image_01.bin
 ```
+
+For image OCR captures, the original OCR picture may also be preserved as a
+separate `ocr-image` asset.
 
 Sinks:
 

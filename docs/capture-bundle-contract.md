@@ -1,8 +1,9 @@
 # Capture Bundle Contract
 
-A Clipsmith bundle is a portable directory with `capture.json` plus optional
-content and media files. Consumers should read `capture.json`, not infer meaning
-from filenames.
+A Clipsmith bundle is a portable directory with `capture.json`, `post.md`, and
+`summary.md`. Image OCR captures may also keep the OCR source picture as a
+separate file. Consumers should read `capture.json`, not infer meaning from
+filenames.
 
 Schema: `clipsmith.capture_bundle.v1`.
 
@@ -13,7 +14,7 @@ Schema: `clipsmith.capture_bundle.v1`.
 - `platform`: `xhs`, `x`, `wechat`, `web`, or `image-ocr`
 - `source_url`: original URL or local file path
 - `content_files`: relative content file references
-- `assets`: relative media/archive file references
+- `assets`: relative OCR image file references, or an empty array
 - `warnings`: warning strings
 - `status`: `complete`, `partial`, `failed`, or `needs_manual_action`
 
@@ -30,13 +31,20 @@ Common optional fields:
 `content_files` entries:
 
 - `path`: relative path inside the bundle
-- `kind`: `summary`, `post`, `article`, `ocr`, or similar
+- `kind`: `summary` or `post`
 - `required_for_review`: whether the file must exist
 
 `assets` entries:
 
 - `path`: relative path inside the bundle
-- `kind`: `image`, `video`, `mhtml`, `archive`, or similar
+- `kind`: `ocr-image`
+
+Final bundle directories may contain only:
+
+- `capture.json`
+- `post.md`
+- `summary.md`
+- OCR image files referenced from `assets` with kind `ocr-image`
 
 Paths must stay inside the bundle. Absolute paths and `..` traversal are
 validation issues.
@@ -64,7 +72,7 @@ Exit code `0` means valid. Exit code `1` means invalid or incomplete.
   "captured_at": "2026-07-07T15:30:00+08:00",
   "content_files": [
     {"path": "summary.md", "kind": "summary", "required_for_review": true},
-    {"path": "article.md", "kind": "article", "required_for_review": true}
+    {"path": "post.md", "kind": "post", "required_for_review": true}
   ],
   "assets": [],
   "warnings": [],

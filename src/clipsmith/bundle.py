@@ -11,6 +11,9 @@ from clipsmith.errors import BundleError
 
 BUNDLE_SCHEMA = "clipsmith.capture_bundle.v1"
 VALID_STATUSES = {"complete", "partial", "failed", "needs_manual_action"}
+CAPTURE_FILE = "capture.json"
+ALLOWED_CONTENT_FILE_PATHS = {"post.md", "summary.md"}
+ALLOWED_OCR_IMAGE_ASSET_KINDS = {"ocr-image"}
 REQUIRED_FIELDS = (
     "schema",
     "id",
@@ -93,7 +96,7 @@ class BundleRepository:
         root_path.mkdir(parents=True, exist_ok=True)
         payload = asdict(bundle)
         payload.pop("payload_keys", None)
-        path = root_path / "capture.json"
+        path = root_path / CAPTURE_FILE
         path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
@@ -105,14 +108,16 @@ class BundleRepository:
     def validate_result(self, root: Path | str) -> BundleValidation:
         root_path = Path(root).expanduser()
         issues: list[BundleIssue] = []
-        capture_path = root_path / "capture.json"
+        allowed_file_paths = {CAPTURE_FILE}
+        referenced_file_paths = {CAPTURE_FILE}
+        capture_path = root_path / CAPTURE_FILE
         if not capture_path.is_file():
             return BundleValidation(
                 (
                     BundleIssue(
                         kind="missing_capture_json",
-                        path="capture.json",
-                        message="Bundle is missing capture.json",
+                        path=CAPTURE_FILE,
+                        message=f"Bundle is missing {CAPTURE_FILE}",
                     ),
                 )
             )
@@ -124,7 +129,7 @@ class BundleRepository:
                 (
                     BundleIssue(
                         kind="invalid_capture_json",
-                        path="capture.json",
+                        path=CAPTURE_FILE,
                         message=str(exc),
                     ),
                 )
@@ -133,7 +138,7 @@ class BundleRepository:
             issues.append(
                 BundleIssue(
                     kind="unsupported_schema",
-                    path="capture.json",
+                    path=CAPTURE_FILE,
                     message=f"Unsupported schema: {bundle.schema}",
                 )
             )
@@ -142,7 +147,7 @@ class BundleRepository:
                 issues.append(
                     BundleIssue(
                         kind="missing_required_field",
-                        path="capture.json",
+                        path=CAPTURE_FILE,
                         message=f"Required field is missing: {field_name}",
                     )
                 )
@@ -150,7 +155,7 @@ class BundleRepository:
             issues.append(
                 BundleIssue(
                     kind="invalid_status",
-                    path="capture.json",
+                    path=CAPTURE_FILE,
                     message=f"Invalid status: {bundle.status}",
                 )
             )
@@ -164,6 +169,20 @@ class BundleRepository:
             if path_issue is not None:
                 issues.append(path_issue)
                 continue
+            referenced_file_paths.add(content_file.path)
+            if content_file.path not in ALLOWED_CONTENT_FILE_PATHS:
+                issues.append(
+                    BundleIssue(
+                        kind="unsupported_content_file",
+                        path=content_file.path,
+                        message=(
+                            "Only post.md and summary.md content files are allowed: "
+                            f"{content_file.path}"
+                        ),
+                    )
+                )
+                continue
+            allowed_file_paths.add(content_file.path)
             if (
                 content_file.required_for_review
                 and not (root_path / content_file.path).is_file()
@@ -185,6 +204,20 @@ class BundleRepository:
             if path_issue is not None:
                 issues.append(path_issue)
                 continue
+            referenced_file_paths.add(asset.path)
+            if asset.kind not in ALLOWED_OCR_IMAGE_ASSET_KINDS:
+                issues.append(
+                    BundleIssue(
+                        kind="unsupported_asset_file",
+                        path=asset.path,
+                        message=(
+                            "Only OCR image assets are allowed in a bundle: "
+                            f"{asset.path}"
+                        ),
+                    )
+                )
+                continue
+            allowed_file_paths.add(asset.path)
             if not (root_path / asset.path).is_file():
                 issues.append(
                     BundleIssue(
@@ -193,10 +226,22 @@ class BundleRepository:
                         message=f"Asset file is missing: {asset.path}",
                     )
                 )
+        for actual_file_path in self._actual_bundle_file_paths(root_path):
+            if (
+                actual_file_path not in allowed_file_paths
+                and actual_file_path not in referenced_file_paths
+            ):
+                issues.append(
+                    BundleIssue(
+                        kind="unexpected_bundle_file",
+                        path=actual_file_path,
+                        message=f"Bundle file is not allowed: {actual_file_path}",
+                    )
+                )
         return BundleValidation(tuple(issues))
 
     def _read_payload(self, root_path: Path) -> dict[str, Any]:
-        capture_path = root_path / "capture.json"
+        capture_path = root_path / CAPTURE_FILE
         try:
             payload = json.loads(capture_path.read_text(encoding="utf-8"))
         except OSError as exc:
@@ -249,6 +294,21 @@ class BundleRepository:
             status=str(payload.get("status", "")),
             payload_keys=frozenset(payload.keys()),
         )
+
+    def _actual_bundle_file_paths(self, root_path: Path) -> list[str]:
+        if not root_path.is_dir():
+            return []
+        root_resolved = root_path.resolve(strict=False)
+        paths: list[str] = []
+        for path in root_path.rglob("*"):
+            if not path.is_file():
+                continue
+            try:
+                relative_path = path.resolve(strict=False).relative_to(root_resolved)
+            except (OSError, ValueError):
+                continue
+            paths.append(relative_path.as_posix())
+        return sorted(paths)
 
     def _invalid_bundle_path_issue(
         self,

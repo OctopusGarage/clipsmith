@@ -37,12 +37,13 @@ video, and optional MHTML. Before finalizing a Clipsmith capture job, run the
 `raw-output-to-capture.json` normalization step by converting that raw folder
 into a bundle:
 
-1. Keep `post.md` and downloaded assets in the bundle directory.
+1. Keep `post.md` in the bundle directory; do not copy downloaded media or MHTML
+   into the final bundle.
 2. Create `summary.md` from the captured post text.
 3. Write `capture.json` with schema `clipsmith.capture_bundle.v1`, platform
    `x`, source/canonical URL, title/author/published metadata when available,
-   `content_files` entries for `summary.md` and `post.md`, asset entries for
-   downloaded media/MHTML, warnings, and status.
+   `content_files` entries for `summary.md` and `post.md`, an empty `assets`
+   array, warnings, and status.
 4. Run `clipsmith validate-bundle "<bundle_dir>" --json`.
 
 Do not call `clipsmith capture finalize` until `capture.json` exists and

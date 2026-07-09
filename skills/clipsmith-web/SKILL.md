@@ -20,12 +20,13 @@ npx tsx scripts/run.ts \
 The script creates a bundle directory containing:
 
 - `capture.json`
-- `article.md`
+- `post.md`
 - `summary.md`
 
 `capture.json` must use schema `clipsmith.capture_bundle.v1`, platform `web`,
-the source URL, relative content file references, relative asset references,
-warnings, and status.
+the source URL, relative content file references, an empty `assets` array,
+warnings, and status. Final bundles may contain only `capture.json`, `post.md`,
+`summary.md`, plus separate OCR image files for image OCR captures.
 
 Before reporting success, run:
 

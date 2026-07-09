@@ -99,9 +99,9 @@ async function main(): Promise<void> {
   const bundleDir = join(outputDir, id);
   await mkdir(bundleDir, { recursive: true });
 
-  const article = `# ${title}\n\nSource: ${url}\n\n${text || 'No extractable text found.'}\n`;
+  const post = `# ${title}\n\nSource: ${url}\n\n${text || 'No extractable text found.'}\n`;
   const summary = `# Summary\n\n${summaryFromText(text)}\n`;
-  await writeFile(join(bundleDir, 'article.md'), article, 'utf8');
+  await writeFile(join(bundleDir, 'post.md'), post, 'utf8');
   await writeFile(join(bundleDir, 'summary.md'), summary, 'utf8');
   await writeFile(
     join(bundleDir, 'capture.json'),
@@ -118,7 +118,7 @@ async function main(): Promise<void> {
         captured_at: new Date().toISOString(),
         content_files: [
           { path: 'summary.md', kind: 'summary', required_for_review: true },
-          { path: 'article.md', kind: 'article', required_for_review: true },
+          { path: 'post.md', kind: 'post', required_for_review: true },
         ],
         assets: [],
         warnings: text ? [] : ['No extractable text found.'],

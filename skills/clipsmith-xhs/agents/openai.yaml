@@ -1,5 +1,5 @@
 version: 1
 interface:
   display_name: Clipsmith Xiaohongshu Capture
-  description: Export XiaoHongShu post text, images, video, and optional comments through the existing runner, then normalize post.md and assets into a Clipsmith bundle.
-  default_prompt: Use this skill for Xiaohongshu or XHS post URLs. Invoke the existing scripts/run.ts runner, never replace it with ad hoc automation, preserve URL query tokens for navigation, reuse the authenticated Chrome CDP session, keep downloaded post assets, and normalize output into an xhs Clipsmith bundle before validation.
+  description: Export XiaoHongShu post text through the existing runner, then normalize post.md and summary.md into a Clipsmith bundle.
+  default_prompt: Use this skill for Xiaohongshu or XHS post URLs. Invoke the existing scripts/run.ts runner, never replace it with ad hoc automation, preserve URL query tokens for navigation, reuse the authenticated Chrome CDP session, and normalize output into an xhs Clipsmith bundle containing only capture.json, post.md, and summary.md before validation.

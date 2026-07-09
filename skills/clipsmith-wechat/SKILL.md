@@ -27,13 +27,13 @@ The copied downloader produces a raw article folder with `article.md`,
 `raw-output-to-capture.json` normalization step by converting that raw folder
 into a bundle:
 
-1. Keep `article.md`, `article.mhtml`, and downloaded images in the bundle
-   directory.
+1. Convert the captured article text into `post.md`; do not copy
+   `article.mhtml` or downloaded images into the final bundle.
 2. Create `summary.md` from the captured article text.
 3. Write `capture.json` with schema `clipsmith.capture_bundle.v1`, platform
    `wechat`, source/canonical URL, title/account/publish metadata when
-   available, `content_files` entries for `summary.md` and `article.md`, asset
-   entries for images/MHTML, warnings, and status.
+   available, `content_files` entries for `summary.md` and `post.md`, an empty
+   `assets` array, warnings, and status.
 4. Run `clipsmith validate-bundle "<bundle_dir>" --json`.
 
 Do not call `clipsmith capture finalize` until `capture.json` exists and
@@ -47,7 +47,8 @@ validation succeeds.
 - Extract article content from WeChat DOM: title, account name, author, publish time, content text, images.
 - Images are lazy-loaded via `data-src` — always prefer `data-src` over `src`.
 - Download only images from `mmbiz.qpic.cn` (skip avatars from `mmbiz.qlogo.cn`).
-- Generate `article.md` with metadata and image references.
+- Generate raw `article.md` with metadata and image references, then normalize it
+  to `post.md` for the final bundle.
 - Do not generate a manifest file.
 
 ## WeChat Article Structure

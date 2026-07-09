@@ -59,7 +59,7 @@ Does **NOT** accept: WebP, SVG, raw camera formats.
 > ```bash
 > sips -s format png input.webp --out input.png
 > ```
-> **After OCR completes, delete the converted file immediately** — it is a temporary artifact. Only the original and `ocr-merge.txt` should remain.
+> **After OCR completes, delete the converted file immediately** — it is a temporary artifact. Only the original image and final bundle files should remain.
 
 ## Runtime Inputs
 
@@ -75,11 +75,13 @@ The OCR runner extracts text to stdout or `output_text`. Before finalizing a
 Clipsmith capture job, run the `raw-output-to-capture.json` normalization step
 by creating a bundle directory containing:
 
-- `ocr-merge.txt` with the OCR text.
-- `summary.md` when the text is substantive.
+- `post.md` with the OCR text.
+- `summary.md`.
+- The original OCR image as a separate file when it should be preserved.
 - `capture.json` with schema `clipsmith.capture_bundle.v1`, platform
   `image-ocr`, the local source path, `content_files` entries for
-  `ocr-merge.txt` and `summary.md`, warnings, and status.
+  `post.md` and `summary.md`, `assets` entries only for OCR image files with
+  kind `ocr-image`, warnings, and status.
 
 Run `clipsmith validate-bundle "<bundle_dir>" --json` before finalizing.
 

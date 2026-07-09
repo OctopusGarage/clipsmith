@@ -49,9 +49,7 @@ def test_directory_sink_copies_bundle_to_output_dir(tmp_path):
     assert (target / "post.md").read_text(encoding="utf-8") == (
         FIXTURES / "valid-xhs-bundle" / "post.md"
     ).read_text(encoding="utf-8")
-    assert (target / "image_01.bin").read_bytes() == (
-        FIXTURES / "valid-xhs-bundle" / "image_01.bin"
-    ).read_bytes()
+    assert (target / "summary.md").is_file()
 
 
 def test_inbox_sink_copies_bundle_to_platform_inbox(tmp_path):

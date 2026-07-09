@@ -43,6 +43,157 @@ def test_missing_required_content_file_is_reported():
     ]
 
 
+def test_unreferenced_bundle_file_is_reported(tmp_path):
+    root = tmp_path / "bundle"
+    root.mkdir()
+    (root / "post.md").write_text("# Post\n", encoding="utf-8")
+    (root / "summary.md").write_text("# Summary\n", encoding="utf-8")
+    (root / "image_01.jpg").write_bytes(b"not allowed")
+    (root / "capture.json").write_text(
+        json.dumps(
+            {
+                "schema": "clipsmith.capture_bundle.v1",
+                "id": "extra-file",
+                "platform": "xhs",
+                "source_url": "https://www.xiaohongshu.com/explore/abc",
+                "content_files": [
+                    {
+                        "path": "summary.md",
+                        "kind": "summary",
+                        "required_for_review": True,
+                    },
+                    {"path": "post.md", "kind": "post", "required_for_review": True},
+                ],
+                "assets": [],
+                "warnings": [],
+                "status": "complete",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    issues = BundleRepository().validate(root)
+
+    assert issues == [
+        {
+            "kind": "unexpected_bundle_file",
+            "path": "image_01.jpg",
+            "message": "Bundle file is not allowed: image_01.jpg",
+        }
+    ]
+
+
+def test_only_post_summary_and_ocr_image_assets_are_allowed(tmp_path):
+    root = tmp_path / "bundle"
+    root.mkdir()
+    (root / "post.md").write_text("# OCR Text\n", encoding="utf-8")
+    (root / "summary.md").write_text("# Summary\n", encoding="utf-8")
+    (root / "ocr-image.jpg").write_bytes(b"ocr image")
+    (root / "capture.json").write_text(
+        json.dumps(
+            {
+                "schema": "clipsmith.capture_bundle.v1",
+                "id": "ocr-image",
+                "platform": "image-ocr",
+                "source_url": "/tmp/source.jpg",
+                "content_files": [
+                    {
+                        "path": "summary.md",
+                        "kind": "summary",
+                        "required_for_review": True,
+                    },
+                    {"path": "post.md", "kind": "post", "required_for_review": True},
+                ],
+                "assets": [{"path": "ocr-image.jpg", "kind": "ocr-image"}],
+                "warnings": [],
+                "status": "complete",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    issues = BundleRepository().validate(root)
+
+    assert issues == []
+
+
+def test_non_ocr_assets_are_reported(tmp_path):
+    root = tmp_path / "bundle"
+    root.mkdir()
+    (root / "post.md").write_text("# Post\n", encoding="utf-8")
+    (root / "summary.md").write_text("# Summary\n", encoding="utf-8")
+    (root / "image_01.jpg").write_bytes(b"regular media")
+    (root / "capture.json").write_text(
+        json.dumps(
+            {
+                "schema": "clipsmith.capture_bundle.v1",
+                "id": "media-asset",
+                "platform": "xhs",
+                "source_url": "https://www.xiaohongshu.com/explore/abc",
+                "content_files": [
+                    {
+                        "path": "summary.md",
+                        "kind": "summary",
+                        "required_for_review": True,
+                    },
+                    {"path": "post.md", "kind": "post", "required_for_review": True},
+                ],
+                "assets": [{"path": "image_01.jpg", "kind": "image"}],
+                "warnings": [],
+                "status": "complete",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    issues = BundleRepository().validate(root)
+
+    assert issues == [
+        {
+            "kind": "unsupported_asset_file",
+            "path": "image_01.jpg",
+            "message": "Only OCR image assets are allowed in a bundle: image_01.jpg",
+        }
+    ]
+
+
+def test_unsupported_content_file_is_reported(tmp_path):
+    root = tmp_path / "bundle"
+    root.mkdir()
+    (root / "article.md").write_text("# Article\n", encoding="utf-8")
+    (root / "capture.json").write_text(
+        json.dumps(
+            {
+                "schema": "clipsmith.capture_bundle.v1",
+                "id": "article-file",
+                "platform": "web",
+                "source_url": "https://example.com/article",
+                "content_files": [
+                    {
+                        "path": "article.md",
+                        "kind": "article",
+                        "required_for_review": True,
+                    }
+                ],
+                "assets": [],
+                "warnings": [],
+                "status": "complete",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    issues = BundleRepository().validate(root)
+
+    assert issues == [
+        {
+            "kind": "unsupported_content_file",
+            "path": "article.md",
+            "message": "Only post.md and summary.md content files are allowed: article.md",
+        }
+    ]
+
+
 def test_content_file_path_must_not_escape_bundle_root(tmp_path):
     outside = tmp_path / "outside.md"
     outside.write_text("outside bundle", encoding="utf-8")
