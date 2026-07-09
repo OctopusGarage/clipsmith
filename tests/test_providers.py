@@ -1,6 +1,6 @@
 import pytest
 
-from clipsmith.providers import ProviderInfo, ProviderRegistry
+from clipsmith.providers import ProviderExecutionMode, ProviderInfo, ProviderRegistry
 
 
 def test_matches_xhs_urls():
@@ -10,7 +10,7 @@ def test_matches_xhs_urls():
 
     assert provider is not None
     assert provider.name == "xhs"
-    assert provider.mode == "skill"
+    assert provider.mode is ProviderExecutionMode.SKILL
 
 
 def test_matches_x_urls():
@@ -76,6 +76,17 @@ def test_custom_wildcard_provider_handles_unknown_urls():
 def test_provider_info_requires_domains():
     with pytest.raises(TypeError):
         ProviderInfo("x", "skill", "clipsmith-x")
+
+
+def test_provider_info_coerces_supported_execution_mode():
+    provider = ProviderInfo("x", "skill", "clipsmith-x", domains=["x.com"])
+
+    assert provider.mode is ProviderExecutionMode.SKILL
+
+
+def test_provider_info_rejects_unsupported_execution_mode():
+    with pytest.raises(ValueError, match="Unsupported provider execution mode"):
+        ProviderInfo("x", "executor", "clipsmith-x", domains=["x.com"])
 
 
 def test_registry_without_wildcard_returns_none_for_unknown_urls():

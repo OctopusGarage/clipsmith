@@ -36,5 +36,5 @@ post, article, or local media item into a Clipsmith bundle.
 
 6. Report the bundle path, status, warnings, and validation issues.
 
-Do not write OKF knowledge records. Do not move the bundle into an Alcove
-workspace unless the user explicitly requested an Alcove sink.
+Do not write knowledge records. Do not move the bundle into an external inbox
+workspace unless the user explicitly requested an inbox sink.

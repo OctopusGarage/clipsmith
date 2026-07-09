@@ -1,44 +1,65 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 import shutil
 
-from clipsmith.bundle import BundleRepository
+from clipsmith.bundle import BundleRepository, CaptureBundle
 from clipsmith.errors import BundleError
+
+
+type DestinationSelector = Callable[[CaptureBundle], tuple[Path, str, str]]
+type CopyTree = Callable[[Path, Path], object]
+
+
+class BundleExporter:
+    def __init__(
+        self,
+        *,
+        repository: BundleRepository | None = None,
+        copy_tree: CopyTree = shutil.copytree,
+    ) -> None:
+        self.repository = repository or BundleRepository()
+        self._copy_tree = copy_tree
+
+    def write_bundle(
+        self,
+        bundle_root: Path | str,
+        destination_for_bundle: DestinationSelector,
+    ) -> dict[str, str]:
+        bundle_root_path = Path(bundle_root).expanduser()
+        bundle = self.repository.read(bundle_root_path)
+        parent, name, label = destination_for_bundle(bundle)
+        target = _unique_target(parent, _safe_path_segment(name, label=label))
+
+        target.parent.mkdir(parents=True, exist_ok=True)
+        self._copy_tree(bundle_root_path, target)
+        return {"status": "written", "path": str(target)}
 
 
 class DirectorySink:
     def __init__(self, output_dir: Path | str) -> None:
         self.output_dir = Path(output_dir).expanduser()
-        self.repository = BundleRepository()
+        self.exporter = BundleExporter()
 
     def write(self, bundle_root: Path | str) -> dict[str, str]:
-        bundle_root_path = Path(bundle_root).expanduser()
-        bundle = self.repository.read(bundle_root_path)
-        bundle_id = _safe_path_segment(bundle.id, label="bundle id")
-        target = _unique_target(self.output_dir, bundle_id)
-
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(bundle_root_path, target)
-        return {"status": "written", "path": str(target)}
+        return self.exporter.write_bundle(
+            bundle_root,
+            lambda bundle: (self.output_dir, bundle.id, "bundle id"),
+        )
 
 
-class AlcoveInboxSink:
+class InboxSink:
     def __init__(self, workspace: Path | str) -> None:
         self.workspace = Path(workspace).expanduser()
-        self.repository = BundleRepository()
+        self.exporter = BundleExporter()
 
     def write(self, bundle_root: Path | str) -> dict[str, str]:
-        bundle_root_path = Path(bundle_root).expanduser()
-        bundle = self.repository.read(bundle_root_path)
-        platform = _safe_path_segment(bundle.platform, label="platform")
-        bundle_id = _safe_path_segment(bundle.id, label="bundle id")
-        inbox_dir = self.workspace / "inbox" / platform
-        target = _unique_target(inbox_dir, bundle_id)
+        def destination(bundle: CaptureBundle) -> tuple[Path, str, str]:
+            platform = _safe_path_segment(bundle.platform, label="platform")
+            return self.workspace / "inbox" / platform, bundle.id, "bundle id"
 
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(bundle_root_path, target)
-        return {"status": "written", "path": str(target)}
+        return self.exporter.write_bundle(bundle_root, destination)
 
 
 def _unique_target(parent: Path, name: str) -> Path:

@@ -1,46 +1,30 @@
 # Clipsmith
 
-Clipsmith is an independent CLI + agent-skill toolkit for capturing posts,
-articles, local media, and OCR output into portable local bundles.
+[![project-health](https://github.com/OctopusGarage/clipsmith/actions/workflows/project-health.yml/badge.svg)](https://github.com/OctopusGarage/clipsmith/actions/workflows/project-health.yml)
+[![gitleaks](https://github.com/OctopusGarage/clipsmith/actions/workflows/gitleaks.yml/badge.svg)](https://github.com/OctopusGarage/clipsmith/actions/workflows/gitleaks.yml)
+[![Python >=3.12](https://img.shields.io/badge/python-%3E%3D3.12-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![uv](https://img.shields.io/badge/managed%20with-uv-654FF0)](https://github.com/astral-sh/uv)
+[![Ruff](https://img.shields.io/badge/code%20style-ruff-261230)](https://docs.astral.sh/ruff/)
 
-It owns deterministic protocol work:
+Clipsmith captures posts, articles, local media, and OCR output into portable
+`clipsmith.capture_bundle.v1` directories.
 
-- provider matching
-- capture job metadata
-- bundle validation
-- filesystem sinks
-
-Agent skills own browser/session-sensitive work such as XHS, X, WeChat, generic
-web capture, and macOS Vision OCR. Clipsmith does not write OKF knowledge
-records.
-
-## Commands
-
-```bash
-clipsmith providers --json
-clipsmith validate-bundle /path/to/bundle --json
-clipsmith capture start "https://example.com/post" --state-dir /tmp/clipsmith-state
-clipsmith capture finalize "<job_id_or_job_path>" /path/to/bundle --state-dir /tmp/clipsmith-state
-clipsmith sink directory /path/to/bundle ~/Downloads/clips --json
-clipsmith sink alcove-inbox /path/to/bundle ~/programming/kingson4wu/entropy-nexus/social_media_posts --json
-```
+- CLI: provider matching, jobs, validation, sinks, install, doctor.
+- Skills: platform capture with browser sessions, proxies, CDP, and login state.
+- Consumers: read validated bundles and decide how to review, archive, or index.
 
 ## Install
 
-Install CLI directly from GitHub:
-
 ```bash
 uv tool install --force git+https://github.com/OctopusGarage/clipsmith.git
-clipsmith --version
 clipsmith install --all
 clipsmith doctor
 ```
 
-This installs the CLI, links bundled skills into Claude Code and Codex, then
-checks local runtime dependencies. Restart Claude Code or Codex after installing
-skills.
+Restart Codex or Claude Code after installing skills.
 
-Source clone install is still supported:
+Source checkout:
 
 ```bash
 git clone https://github.com/OctopusGarage/clipsmith.git
@@ -48,46 +32,70 @@ cd clipsmith
 ./install.sh --all
 ```
 
-See [INSTALL.md](INSTALL.md) for target-specific installs, copy mode, doctor
-checks, and uninstall options.
+More install options: [INSTALL.md](INSTALL.md).
 
-## Capture Flow
+## Capture With An Agent
 
-1. Start a capture job with `clipsmith capture start`.
-2. Run the provider skill shown by the selected provider:
-   - `clipsmith-xhs`
-   - `clipsmith-x`
-   - `clipsmith-wechat`
-   - `clipsmith-web`
-   - `clipsmith-ocr`
-3. Convert raw downloader output through the `raw-output-to-capture.json`
-   normalization step so the output directory contains a valid `capture.json`.
-4. Run `clipsmith validate-bundle`.
-5. Finalize the job with `clipsmith capture finalize`.
-6. Optionally copy the bundle to a directory sink or Alcove inbox sink.
+After installing skills, use the same prompt in Codex or Claude Code:
 
-## Skills
+```text
+Use clipsmith-capture to capture https://example.com/post
+```
 
-The `skills/` directory contains copied and adapted capture skills. Heavy local
-dependency caches such as `node_modules` and `.venv` are intentionally excluded;
-the skill runners bootstrap dependencies through package manager metadata when
-needed.
+To request a sink, say it explicitly:
 
-Each skill carries both Claude Code and Codex-facing metadata:
+```text
+Use clipsmith-capture to capture https://example.com/post and sink it to /path/to/inbox-workspace
+```
 
-- `SKILL.md` for agent instructions.
-- `agents/openai.yaml` for Codex display metadata and default prompt.
-- `skill.yaml` for executable skill runners when applicable.
+Claude Code also has repo-local shortcuts:
 
-## Agent Workflows
+```text
+/capture https://example.com/post
+/health
+```
 
-Claude Code project commands:
+## CLI
 
-- `/capture <url-or-file>` starts the standard Clipsmith capture workflow.
-- `/health` runs the project health check.
+Use the CLI for deterministic protocol work:
 
-Codex and other coding agents should read `AGENTS.md` before modifying the
-project.
+```bash
+clipsmith providers --json
+clipsmith capture start "https://example.com/post" --state-dir /tmp/clipsmith-state
+clipsmith validate-bundle /path/to/bundle --json
+clipsmith capture finalize "<job_id_or_job_path>" /path/to/bundle --state-dir /tmp/clipsmith-state
+clipsmith sink directory /path/to/bundle ~/Downloads/clips --json
+clipsmith sink inbox /path/to/bundle /path/to/inbox-workspace --json
+```
+
+In a source checkout, use `uv run clipsmith ...`.
+
+## Workflow
+
+1. `capture start` selects a provider and creates a job.
+2. The provider skill captures and normalizes output into a bundle.
+3. `validate-bundle` checks the bundle contract.
+4. `capture finalize` marks the job done.
+5. A sink copies the bundle only when requested.
+
+Current provider execution mode is `skill`.
+
+## Output
+
+Typical bundle:
+
+```text
+20260707-example-xhs/
+  capture.json
+  post.md
+  summary.md
+  image_01.bin
+```
+
+Sinks:
+
+- `directory`: `<output_dir>/<bundle-id>/`
+- `inbox`: `<workspace>/inbox/<platform>/<bundle-id>/`
 
 ## Development
 
@@ -96,22 +104,11 @@ uv run pytest -q
 ./script/check-health.sh
 ```
 
-`check-health.sh` validates the Python CLI, fixture bundle, provider registry,
-and skill metadata expected by Claude Code and Codex.
-
-Optional local hooks can mirror the CI gates:
-
-```bash
-git config core.hooksPath .githooks
-```
-
-CI runs project health on Ubuntu and macOS, plus gitleaks secret scanning for
-PRs to `main`.
-
 ## Docs
 
+- [Project Page](https://octopusgarage.github.io/clipsmith/)
 - [Install](INSTALL.md)
 - [Release](RELEASE.md)
 - [Development](docs/DEVELOP.md)
 - [Capture Bundle Contract](docs/capture-bundle-contract.md)
-- [Alcove Integration](docs/alcove-integration.md)
+- [Inbox Integration](docs/inbox-integration.md)

@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Clipsmith - Local-first capture bundles</title>
+    <meta
+      name="description"
+      content="Clipsmith captures posts, articles, local media, and OCR output into portable local bundles for downstream review and archiving."
+    />
+    <meta name="theme-color" content="#f5f2ea" />
+    <meta property="og:title" content="Clipsmith" />
+    <meta
+      property="og:description"
+      content="Local-first capture toolkit for portable post, article, media, and OCR bundles."
+    />
+    <meta property="og:type" content="website" />
+    <style>
+      :root {
+        color-scheme: light;
+        --paper: #f5f2ea;
+        --sheet: #fffdf8;
+        --ink: #20242a;
+        --muted: #68717c;
+        --line: #ddd6c9;
+        --black: #15141a;
+        --jade: #26745f;
+        --blue: #3b6f9f;
+        --plum: #6a4c8f;
+        --amber: #bd7a22;
+        --rose: #b65d59;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family:
+          ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter,
+          Roboto, "Helvetica Neue", Arial, sans-serif;
+        line-height: 1.65;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      a:focus-visible,
+      button:focus-visible {
+        outline: 2px solid var(--blue);
+        outline-offset: 3px;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        height: 60px;
+        background: rgba(255, 253, 248, 0.92);
+        border-bottom: 1px solid rgba(32, 36, 42, 0.08);
+        backdrop-filter: blur(14px);
+      }
+
+      .topbar-inner {
+        max-width: 1080px;
+        height: 100%;
+        margin: 0 auto;
+        padding: 0 22px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+
+      .brand-mark {
+        width: 28px;
+        height: 28px;
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 650;
+      }
+
+      .nav a:hover {
+        color: var(--ink);
+      }
+
+      .header-band {
+        position: relative;
+        min-height: 210px;
+        overflow: hidden;
+        background: var(--black);
+      }
+
+      .header-band svg {
+        width: 100%;
+        height: 210px;
+        display: block;
+      }
+
+      .header-band text {
+        fill: #fffdf8;
+        font-size: clamp(28px, 6vw, 58px);
+        font-weight: 700;
+      }
+
+      .signal-lines {
+        position: absolute;
+        inset: 0;
+        opacity: 0.28;
+        pointer-events: none;
+        background:
+          linear-gradient(90deg, transparent 0 47%, rgba(255, 255, 255, 0.18) 48% 52%, transparent 53% 100%),
+          repeating-linear-gradient(0deg, transparent 0 27px, rgba(255, 255, 255, 0.08) 28px 29px);
+        mask-image: radial-gradient(circle at 50% 50%, #000 0, transparent 72%);
+      }
+
+      main {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 42px 22px 72px;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(360px, 0.78fr);
+        gap: 42px;
+        align-items: center;
+      }
+
+      .eyebrow {
+        margin: 0 0 14px;
+        color: var(--jade);
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        margin-bottom: 18px;
+        font-size: clamp(43px, 7vw, 84px);
+        line-height: 0.96;
+        letter-spacing: 0;
+      }
+
+      h2 {
+        margin-bottom: 16px;
+        font-size: clamp(28px, 4vw, 44px);
+        line-height: 1.08;
+        letter-spacing: 0;
+      }
+
+      h3 {
+        margin-bottom: 8px;
+        font-size: 18px;
+        line-height: 1.25;
+      }
+
+      .lead {
+        max-width: 660px;
+        margin-bottom: 26px;
+        color: #46505a;
+        font-size: 20px;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 0 17px;
+        border: 2px solid var(--ink);
+        border-radius: 8px;
+        background: var(--ink);
+        color: #fff;
+        font-weight: 750;
+      }
+
+      .button.secondary {
+        background: transparent;
+        color: var(--ink);
+      }
+
+      .button:hover {
+        transform: translateY(-1px);
+      }
+
+      .diagram {
+        padding: 20px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--sheet);
+      }
+
+      .diagram svg {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      .section {
+        margin-top: 64px;
+      }
+
+      .copy-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .item {
+        min-height: 180px;
+        padding: 22px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--sheet);
+      }
+
+      .item svg {
+        width: 34px;
+        height: 34px;
+        margin-bottom: 18px;
+        color: var(--jade);
+      }
+
+      .item:nth-child(2) svg {
+        color: var(--blue);
+      }
+
+      .item:nth-child(3) svg {
+        color: var(--amber);
+      }
+
+      .item p,
+      .section-lead {
+        color: var(--muted);
+      }
+
+      .workflow {
+        display: grid;
+        grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
+        gap: 30px;
+        align-items: start;
+      }
+
+      .steps {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        border-top: 1px solid var(--line);
+      }
+
+      .steps li {
+        display: grid;
+        grid-template-columns: 48px 1fr;
+        gap: 16px;
+        padding: 18px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .step-no {
+        color: var(--rose);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-weight: 800;
+      }
+
+      pre {
+        margin: 0;
+        overflow-x: auto;
+        border-radius: 8px;
+        background: var(--black);
+        color: #f5f2ea;
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      pre code {
+        display: block;
+        padding: 20px;
+      }
+
+      .contract {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+
+      .contract-block {
+        padding: 24px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--sheet);
+      }
+
+      .contract-block ul {
+        margin: 0;
+        padding-left: 20px;
+        color: var(--muted);
+      }
+
+      footer {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 26px 22px 46px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .footer-line {
+        padding-top: 22px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+
+      @media (max-width: 860px) {
+        .hero,
+        .workflow,
+        .contract,
+        .copy-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .nav {
+          gap: 12px;
+          font-size: 13px;
+        }
+
+        .nav a:nth-child(2) {
+          display: none;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .topbar-inner {
+          padding: 0 16px;
+        }
+
+        .brand {
+          font-size: 19px;
+        }
+
+        .nav a:nth-child(3) {
+          display: none;
+        }
+
+        main {
+          padding: 30px 16px 56px;
+        }
+
+        .header-band,
+        .header-band svg {
+          height: 160px;
+          min-height: 160px;
+        }
+
+        .lead {
+          font-size: 18px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="#" aria-label="Clipsmith home">
+          <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
+            <rect x="9" y="9" width="46" height="46" rx="10" fill="#15141a" />
+            <path d="M20 23h24M20 33h16M20 43h24" stroke="#fffdf8" stroke-width="4" stroke-linecap="round" />
+            <path d="M44 18v28" stroke="#26745f" stroke-width="5" stroke-linecap="round" />
+          </svg>
+          Clipsmith
+        </a>
+        <nav class="nav" aria-label="Primary">
+          <a href="#workflow">Workflow</a>
+          <a href="#contract">Contract</a>
+          <a href="https://github.com/OctopusGarage/clipsmith">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <div class="header-band" aria-hidden="true">
+      <div class="signal-lines"></div>
+      <svg viewBox="0 0 1400 210" role="img" aria-label="Capture locally, carry anywhere">
+        <path id="title-path">
+          <animate attributeName="d" from="M70 112 H180" to="M70 112 H1330" dur="1300ms" fill="freeze" />
+        </path>
+        <text text-anchor="middle">
+          <textPath href="#title-path" startOffset="50%">Capture locally, carry anywhere</textPath>
+        </text>
+      </svg>
+    </div>
+
+    <main>
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Local-first capture protocol</p>
+          <h1>Portable bundles for posts, articles, media, and OCR.</h1>
+          <p class="lead">
+            Clipsmith separates deterministic capture protocol from platform
+            browser strategy. Agents handle the messy web; the CLI validates and
+            moves clean bundles.
+          </p>
+          <div class="actions">
+            <a class="button" href="https://github.com/OctopusGarage/clipsmith">View on GitHub</a>
+            <a class="button secondary" href="#workflow">Read the workflow</a>
+          </div>
+        </div>
+
+        <figure class="diagram" aria-label="Clipsmith architecture diagram">
+          <svg viewBox="0 0 620 520" role="img">
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0 0 10 5 0 10z" fill="#68717c" />
+              </marker>
+            </defs>
+            <rect x="20" y="20" width="580" height="480" rx="20" fill="#f5f2ea" stroke="#ddd6c9" />
+            <g fill="#fffdf8" stroke="#ddd6c9">
+              <rect x="60" y="72" width="180" height="74" rx="14" />
+              <rect x="60" y="178" width="180" height="74" rx="14" />
+              <rect x="60" y="284" width="180" height="74" rx="14" />
+              <rect x="330" y="144" width="220" height="112" rx="18" />
+              <rect x="340" y="332" width="200" height="78" rx="14" />
+            </g>
+            <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" font-weight="700" fill="#20242a">
+              <text x="86" y="116">XHS / X</text>
+              <text x="86" y="222">WeChat</text>
+              <text x="86" y="328">Web / OCR</text>
+              <text x="370" y="190">capture.json</text>
+              <text x="382" y="225">+ assets</text>
+              <text x="382" y="382">inbox sink</text>
+            </g>
+            <g stroke="#68717c" stroke-width="3" fill="none" marker-end="url(#arrow)">
+              <path d="M240 109 C280 110 292 160 330 180" />
+              <path d="M240 215 H322" />
+              <path d="M240 321 C280 320 294 260 330 224" />
+              <path d="M440 256 V322" />
+            </g>
+            <g fill="none" stroke-width="6" stroke-linecap="round">
+              <path d="M380 78 C430 58 488 58 530 86" stroke="#26745f" />
+              <path d="M390 96 C430 78 476 80 512 102" stroke="#3b6f9f" />
+              <path d="M400 114 C430 102 462 104 492 120" stroke="#bd7a22" />
+            </g>
+          </svg>
+        </figure>
+      </section>
+
+      <section class="section" aria-labelledby="why">
+        <p class="eyebrow">Why it exists</p>
+        <h2 id="why">Capture is not knowledge management.</h2>
+        <div class="copy-grid">
+          <article class="item">
+            <svg viewBox="0 0 32 32" aria-hidden="true">
+              <path d="M6 9h20M6 16h14M6 23h20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+            </svg>
+            <h3>Small contract</h3>
+            <p>Every capture becomes a directory with <code>capture.json</code>, content files, assets, warnings, and status.</p>
+          </article>
+          <article class="item">
+            <svg viewBox="0 0 32 32" aria-hidden="true">
+              <path d="M8 8h16v16H8zM4 16h4M24 16h4M16 4v4M16 24v4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <h3>Agent execution</h3>
+            <p>Platform skills keep CDP ports, proxies, login sessions, and fallback steps close to the capture workflow.</p>
+          </article>
+          <article class="item">
+            <svg viewBox="0 0 32 32" aria-hidden="true">
+              <path d="M6 22 16 7l10 15H6zM10 22v4h12v-4" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" />
+            </svg>
+            <h3>Downstream neutral</h3>
+            <p>Clipsmith validates and exports bundles. Other tools decide how to review, archive, or turn them into knowledge.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section workflow" id="workflow">
+        <div>
+          <p class="eyebrow">Workflow</p>
+          <h2>One protocol, different capture strategies.</h2>
+          <p class="section-lead">
+            Use the installed agent skill for real captures. Use the CLI for job
+            state, validation, and sinks.
+          </p>
+        </div>
+        <ol class="steps">
+          <li>
+            <span class="step-no">01</span>
+            <span><strong>Start</strong><br />Select a provider and create a pending capture job.</span>
+          </li>
+          <li>
+            <span class="step-no">02</span>
+            <span><strong>Capture</strong><br />Run the provider skill for XHS, X, WeChat, web, or OCR.</span>
+          </li>
+          <li>
+            <span class="step-no">03</span>
+            <span><strong>Validate</strong><br />Check paths, required files, schema, status, and warnings.</span>
+          </li>
+          <li>
+            <span class="step-no">04</span>
+            <span><strong>Sink</strong><br />Copy the validated bundle only when explicitly requested.</span>
+          </li>
+        </ol>
+      </section>
+
+      <section class="section" aria-labelledby="commands">
+        <p class="eyebrow">Commands</p>
+        <h2 id="commands">The protocol surface is scriptable.</h2>
+        <pre><code>clipsmith providers --json
+clipsmith capture start "https://example.com/post" --state-dir /tmp/clipsmith-state
+clipsmith validate-bundle /path/to/bundle --json
+clipsmith capture finalize "&lt;job_id_or_job_path&gt;" /path/to/bundle --state-dir /tmp/clipsmith-state
+clipsmith sink inbox /path/to/bundle /path/to/inbox-workspace --json</code></pre>
+      </section>
+
+      <section class="section contract" id="contract">
+        <article class="contract-block">
+          <p class="eyebrow">Bundle</p>
+          <h2>Portable by default.</h2>
+          <ul>
+            <li>Schema: <code>clipsmith.capture_bundle.v1</code></li>
+            <li>Relative content and asset paths</li>
+            <li>Status and warnings preserved</li>
+            <li>Validation before reporting ready</li>
+          </ul>
+        </article>
+        <article class="contract-block">
+          <p class="eyebrow">Install</p>
+          <h2>CLI plus skills.</h2>
+          <pre><code>uv tool install --force git+https://github.com/OctopusGarage/clipsmith.git
+clipsmith install --all
+clipsmith doctor</code></pre>
+        </article>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-line">
+        <span>Clipsmith is MIT licensed.</span>
+        <span>
+          <a href="capture-bundle-contract.md">Bundle contract</a> ·
+          <a href="inbox-integration.md">Inbox integration</a>
+        </span>
+      </div>
+    </footer>
+  </body>
+</html>

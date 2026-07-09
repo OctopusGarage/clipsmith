@@ -1,16 +1,33 @@
 from __future__ import annotations
 
 from dataclasses import KW_ONLY, dataclass
+from enum import StrEnum
 from urllib.parse import urlparse
+
+
+class ProviderExecutionMode(StrEnum):
+    SKILL = "skill"
 
 
 @dataclass(frozen=True)
 class ProviderInfo:
     name: str
-    mode: str
+    mode: ProviderExecutionMode
     skill: str
     _: KW_ONLY
     domains: list[str]
+
+    def __post_init__(self) -> None:
+        if isinstance(self.mode, ProviderExecutionMode):
+            return
+
+        try:
+            mode = ProviderExecutionMode(self.mode)
+        except ValueError as exc:
+            raise ValueError(
+                f"Unsupported provider execution mode: {self.mode}"
+            ) from exc
+        object.__setattr__(self, "mode", mode)
 
 
 class ProviderRegistry:
@@ -23,21 +40,31 @@ class ProviderRegistry:
             [
                 ProviderInfo(
                     "xhs",
-                    "skill",
+                    ProviderExecutionMode.SKILL,
                     "clipsmith-xhs",
                     domains=["xiaohongshu.com", "xhslink.com"],
                 ),
                 ProviderInfo(
-                    "x", "skill", "clipsmith-x", domains=["x.com", "twitter.com"]
+                    "x",
+                    ProviderExecutionMode.SKILL,
+                    "clipsmith-x",
+                    domains=["x.com", "twitter.com"],
                 ),
                 ProviderInfo(
                     "wechat",
-                    "skill",
+                    ProviderExecutionMode.SKILL,
                     "clipsmith-wechat",
                     domains=["mp.weixin.qq.com", "weixin.qq.com"],
                 ),
-                ProviderInfo("web", "skill", "clipsmith-web", domains=["*"]),
-                ProviderInfo("image-ocr", "skill", "clipsmith-ocr", domains=[]),
+                ProviderInfo(
+                    "web", ProviderExecutionMode.SKILL, "clipsmith-web", domains=["*"]
+                ),
+                ProviderInfo(
+                    "image-ocr",
+                    ProviderExecutionMode.SKILL,
+                    "clipsmith-ocr",
+                    domains=[],
+                ),
             ]
         )
 

@@ -17,7 +17,7 @@ from clipsmith.installation import (
     print_doctor,
 )
 from clipsmith.providers import ProviderInfo, ProviderRegistry
-from clipsmith.sinks import AlcoveInboxSink, DirectorySink
+from clipsmith.sinks import DirectorySink, InboxSink
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -71,12 +71,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--json", action="store_true", help="Print sink result as JSON"
     )
 
-    alcove_parser = sink_subparsers.add_parser(
-        "alcove-inbox", help="Copy a bundle to an Alcove inbox"
+    inbox_parser = sink_subparsers.add_parser(
+        "inbox", help="Copy a bundle to a filesystem inbox"
     )
-    alcove_parser.add_argument("bundle_path")
-    alcove_parser.add_argument("workspace")
-    alcove_parser.add_argument(
+    inbox_parser.add_argument("bundle_path")
+    inbox_parser.add_argument("workspace")
+    inbox_parser.add_argument(
         "--json", action="store_true", help="Print sink result as JSON"
     )
 
@@ -162,7 +162,7 @@ def _handle_providers(args: argparse.Namespace) -> int:
     print("name\tmode\tskill\tdomains")
     for provider in providers:
         domains = ", ".join(provider.domains)
-        print(f"{provider.name}\t{provider.mode}\t{provider.skill}\t{domains}")
+        print(f"{provider.name}\t{provider.mode.value}\t{provider.skill}\t{domains}")
     return 0
 
 
@@ -182,8 +182,8 @@ def _handle_validate_bundle(args: argparse.Namespace) -> int:
 def _handle_sink(args: argparse.Namespace) -> int:
     if args.sink_command == "directory":
         result = DirectorySink(args.output_dir).write(args.bundle_path)
-    elif args.sink_command == "alcove-inbox":
-        result = AlcoveInboxSink(args.workspace).write(args.bundle_path)
+    elif args.sink_command == "inbox":
+        result = InboxSink(args.workspace).write(args.bundle_path)
     else:
         print("clipsmith sink requires a subcommand", file=sys.stderr)
         return 2
@@ -248,7 +248,7 @@ def _install_options(args: argparse.Namespace, *, action: str) -> InstallOptions
 def _provider_to_dict(provider: ProviderInfo) -> dict[str, object]:
     return {
         "name": provider.name,
-        "mode": provider.mode,
+        "mode": provider.mode.value,
         "skill": provider.skill,
         "domains": provider.domains,
     }

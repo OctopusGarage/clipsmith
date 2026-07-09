@@ -44,6 +44,15 @@ def test_providers_json(capsys):
     ]
 
 
+def test_providers_table_prints_execution_mode(capsys):
+    code = main(["providers"])
+    captured = capsys.readouterr()
+
+    assert code == 0
+    assert captured.out.splitlines()[0] == "name\tmode\tskill\tdomains"
+    assert "xhs\tskill\tclipsmith-xhs\txiaohongshu.com, xhslink.com" in captured.out
+
+
 def test_validate_bundle_json_reports_missing_capture_json(tmp_path, capsys):
     code = main(["validate-bundle", str(tmp_path), "--json"])
     captured = capsys.readouterr()
@@ -83,6 +92,26 @@ def test_sink_directory_json_copies_bundle(tmp_path, capsys):
     captured = capsys.readouterr()
 
     target = output_dir / "20260707-example-xhs"
+    assert code == 0
+    assert json.loads(captured.out) == {"status": "written", "path": str(target)}
+    assert (target / "capture.json").is_file()
+
+
+def test_sink_inbox_json_copies_bundle_to_platform_inbox(tmp_path, capsys):
+    workspace = tmp_path / "workspace"
+
+    code = main(
+        [
+            "sink",
+            "inbox",
+            str(FIXTURES / "valid-xhs-bundle"),
+            str(workspace),
+            "--json",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    target = workspace / "inbox" / "xhs" / "20260707-example-xhs"
     assert code == 0
     assert json.loads(captured.out) == {"status": "written", "path": str(target)}
     assert (target / "capture.json").is_file()

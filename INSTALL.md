@@ -1,11 +1,8 @@
 # Install Clipsmith
 
-Clipsmith has two install surfaces:
+Clipsmith ships as a CLI plus agent skills for Codex and Claude Code.
 
-- the `clipsmith` CLI
-- agent skills for Claude Code and Codex
-
-## Quick Install From GitHub
+## GitHub Install
 
 ```bash
 uv tool install --force git+https://github.com/OctopusGarage/clipsmith.git
@@ -13,17 +10,16 @@ clipsmith install --all
 clipsmith doctor
 ```
 
-This installs the CLI, symlinks all bundled skills into Claude Code and Codex,
-then checks local dependencies.
+Skill targets:
 
 ```text
 ~/.claude/skills/
 $CODEX_HOME/skills/   # defaults to ~/.codex/skills
 ```
 
-Restart Claude Code or Codex after installing skills.
+Restart Codex or Claude Code after installing skills.
 
-## Source Clone Install
+## Source Install
 
 ```bash
 git clone https://github.com/OctopusGarage/clipsmith.git
@@ -31,31 +27,32 @@ cd clipsmith
 ./install.sh --all
 ```
 
-The source installer installs the CLI from the local clone and links skills from
-that checkout. Use this when developing skills or when you want changes in the
-clone to be visible immediately.
+Use this when developing the repo or when skill changes should be visible
+immediately.
 
 ## CLI Only
 
 ```bash
 uv tool install --force git+https://github.com/OctopusGarage/clipsmith.git
-clipsmith --version
 clipsmith providers --json
 ```
 
-For editable local development, run `uv tool install --force -e .` from a clone.
+Editable local install:
 
-## Skills
+```bash
+uv tool install --force -e .
+```
+
+## Skills Only
 
 ```bash
 clipsmith install --all
 clipsmith install --claude
 clipsmith install --codex
+clipsmith install --all --copy
 ```
 
-Use `--copy` if you want a snapshot copy instead of symlinks.
-
-Source clone equivalents:
+Source equivalents:
 
 ```bash
 ./install.sh --all --no-cli
@@ -70,21 +67,15 @@ clipsmith doctor
 clipsmith doctor --json
 ```
 
-`doctor` checks for the bundled skills directory, Claude/Codex skill targets,
-and common runtime dependencies such as `uv`, Node.js, npm/npx, pnpm, git, and
-macOS Vision OCR support.
+Doctor checks skill locations and common runtime tools such as `uv`, Node.js,
+npm/npx, pnpm, git, and macOS Vision OCR support.
 
 ## Uninstall
 
 ```bash
 clipsmith uninstall --all
-```
-
-The uninstall command removes symlinks created by this repository. It does not
-delete foreign skill directories or copied skill snapshots.
-
-Source clone equivalent:
-
-```bash
 ./install.sh --all --uninstall
 ```
+
+Uninstall removes links created by Clipsmith. It does not delete foreign skill
+directories or copied snapshots.

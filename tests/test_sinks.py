@@ -4,10 +4,40 @@ import pytest
 
 from clipsmith.bundle import BundleRepository, CaptureBundle
 from clipsmith.errors import BundleError
-from clipsmith.sinks import AlcoveInboxSink, DirectorySink
+from clipsmith.sinks import BundleExporter, DirectorySink, InboxSink
 
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def test_bundle_exporter_owns_copy_and_collision_policy(tmp_path):
+    class FakeRepository:
+        def read(self, bundle_root):
+            assert bundle_root == tmp_path / "source"
+            return CaptureBundle(
+                schema="clipsmith.capture_bundle.v1",
+                id="safe-id",
+                platform="xhs",
+                source_url="https://example.com/post",
+            )
+
+    copies = []
+
+    def record_copy(source, target):
+        copies.append((source, target))
+        target.mkdir(parents=True)
+
+    (tmp_path / "output" / "safe-id").mkdir(parents=True)
+    exporter = BundleExporter(repository=FakeRepository(), copy_tree=record_copy)
+
+    result = exporter.write_bundle(
+        tmp_path / "source",
+        lambda bundle: (tmp_path / "output", bundle.id, "bundle id"),
+    )
+
+    target = tmp_path / "output" / "safe-id-2"
+    assert result == {"status": "written", "path": str(target)}
+    assert copies == [(tmp_path / "source", target)]
 
 
 def test_directory_sink_copies_bundle_to_output_dir(tmp_path):
@@ -24,8 +54,8 @@ def test_directory_sink_copies_bundle_to_output_dir(tmp_path):
     ).read_bytes()
 
 
-def test_alcove_inbox_sink_copies_bundle_to_platform_inbox(tmp_path):
-    result = AlcoveInboxSink(tmp_path).write(FIXTURES / "valid-xhs-bundle")
+def test_inbox_sink_copies_bundle_to_platform_inbox(tmp_path):
+    result = InboxSink(tmp_path).write(FIXTURES / "valid-xhs-bundle")
 
     target = tmp_path / "inbox" / "xhs" / "20260707-example-xhs"
     assert result == {"status": "written", "path": str(target)}
@@ -57,23 +87,23 @@ def test_directory_sink_rejects_unsafe_bundle_id_without_copying_outside(tmp_pat
     assert not output_dir.exists()
 
 
-def test_alcove_inbox_sink_rejects_unsafe_platform_without_copying_outside(tmp_path):
+def test_inbox_sink_rejects_unsafe_platform_without_copying_outside(tmp_path):
     bundle_root = _write_bundle(tmp_path / "source", platform="../escaped")
     workspace = tmp_path / "workspace"
 
     with pytest.raises(BundleError, match="Unsafe sink path segment"):
-        AlcoveInboxSink(workspace).write(bundle_root)
+        InboxSink(workspace).write(bundle_root)
 
     assert not (workspace / "escaped").exists()
     assert not (workspace / "inbox").exists()
 
 
-def test_alcove_inbox_sink_rejects_unsafe_bundle_id_without_copying_outside(tmp_path):
+def test_inbox_sink_rejects_unsafe_bundle_id_without_copying_outside(tmp_path):
     bundle_root = _write_bundle(tmp_path / "source", bundle_id="../escaped-id")
     workspace = tmp_path / "workspace"
 
     with pytest.raises(BundleError, match="Unsafe sink path segment"):
-        AlcoveInboxSink(workspace).write(bundle_root)
+        InboxSink(workspace).write(bundle_root)
 
     assert not (workspace / "inbox" / "escaped-id").exists()
     assert not (workspace / "inbox" / "xhs").exists()

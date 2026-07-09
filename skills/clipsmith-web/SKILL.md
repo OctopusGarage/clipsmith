@@ -33,6 +33,6 @@ Before reporting success, run:
 clipsmith validate-bundle "<bundle_dir>" --json
 ```
 
-Do not write OKF knowledge records. If the page is login-gated, rate-limited, or
+Do not write knowledge records. If the page is login-gated, rate-limited, or
 blocked by bot protection, stop and report the condition instead of fabricating
 content.

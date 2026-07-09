@@ -1,24 +1,20 @@
 # Capture Bundle Contract
 
-A Clipsmith capture bundle is a portable directory with one required
-`capture.json` file and zero or more content/media files.
+A Clipsmith bundle is a portable directory with `capture.json` plus optional
+content and media files. Consumers should read `capture.json`, not infer meaning
+from filenames.
 
-Consumers must read `capture.json` instead of guessing by filenames.
+Schema: `clipsmith.capture_bundle.v1`.
 
 ## Required Fields
 
-`capture.json` uses schema `clipsmith.capture_bundle.v1`.
-
-Required fields:
-
-- `schema`: must be `clipsmith.capture_bundle.v1`
-- `id`: stable bundle folder id and sink target name
-- `platform`: source provider such as `xhs`, `x`, `wechat`, `web`, or
-  `image-ocr`
-- `source_url`: original source URL or local file path
-- `content_files`: list of relative content file references
-- `assets`: list of relative media/archive file references
-- `warnings`: list of warning strings
+- `schema`: `clipsmith.capture_bundle.v1`
+- `id`: stable bundle id and sink folder name
+- `platform`: `xhs`, `x`, `wechat`, `web`, or `image-ocr`
+- `source_url`: original URL or local file path
+- `content_files`: relative content file references
+- `assets`: relative media/archive file references
+- `warnings`: warning strings
 - `status`: `complete`, `partial`, `failed`, or `needs_manual_action`
 
 Common optional fields:
@@ -31,30 +27,27 @@ Common optional fields:
 
 ## File References
 
-Each content file entry has:
+`content_files` entries:
 
 - `path`: relative path inside the bundle
-- `kind`: semantic kind such as `summary`, `post`, `article`, or `ocr`
-- `required_for_review`: whether validation requires the file to exist
+- `kind`: `summary`, `post`, `article`, `ocr`, or similar
+- `required_for_review`: whether the file must exist
 
-Each asset entry has:
+`assets` entries:
 
 - `path`: relative path inside the bundle
-- `kind`: semantic kind such as `image`, `video`, `mhtml`, or `archive`
+- `kind`: `image`, `video`, `mhtml`, `archive`, or similar
 
-Paths must stay inside the bundle root. Absolute paths and traversal outside the
-bundle are validation issues.
+Paths must stay inside the bundle. Absolute paths and `..` traversal are
+validation issues.
 
-## Validation
-
-Run:
+## Validate
 
 ```bash
 clipsmith validate-bundle /path/to/bundle --json
 ```
 
-The command returns exit code `0` when no issues are found and `1` when the
-bundle is invalid or incomplete.
+Exit code `0` means valid. Exit code `1` means invalid or incomplete.
 
 ## Minimal Example
 

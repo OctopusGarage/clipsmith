@@ -1,27 +1,17 @@
 # AGENTS.md
 
-This file gives Codex and other coding agents the operating rules for this
-repository.
+Rules for Codex and other coding agents in this repo.
 
-## Project Role
+## Role
 
-Clipsmith is a local-first capture toolkit. It turns posts, articles, media, and
-OCR output into portable `clipsmith.capture_bundle.v1` directories.
+Clipsmith captures posts, articles, media, and OCR output into portable
+`clipsmith.capture_bundle.v1` directories.
 
-Clipsmith owns capture protocol work:
-
-- provider matching
-- capture job metadata
-- bundle validation
-- filesystem sinks
-- platform capture skills under `skills/`
-
-Clipsmith does not own knowledge management. Alcove or another consumer reads a
-validated bundle and decides how to review, archive, or write knowledge.
+Clipsmith owns provider matching, capture jobs, validation, sinks, and bundled
+provider skills. Downstream consumers own review, archive, search, and knowledge
+records.
 
 ## Commands
-
-Run from the repository root:
 
 ```bash
 uv run clipsmith providers --json
@@ -30,35 +20,32 @@ uv run pytest -q
 ./script/check-health.sh
 ```
 
-Use `uv run clipsmith ...` for local development. Do not assume a globally
-installed `clipsmith` executable exists.
+Use `uv run clipsmith ...`; do not assume a global `clipsmith`.
 
 ## Skill Contract
 
-Every skill directory under `skills/` must include:
+Every `skills/<name>/` directory needs:
 
-- `SKILL.md` with frontmatter `name` matching the directory name.
-- `agents/openai.yaml` for Codex-compatible display metadata and default prompt.
+- `SKILL.md` with matching frontmatter `name`
+- `agents/openai.yaml`
 
-Executable skills should also include:
-
-- `skill.yaml` with an `executor` path.
-- The referenced executor file.
-
-The routing skill `clipsmith-capture` may omit `skill.yaml`; it delegates to
-provider skills selected by `clipsmith capture start`.
+Executable skills also need `skill.yaml` and the referenced executor.
+`clipsmith-capture` may omit `skill.yaml` because it routes to provider skills.
 
 ## Capture Rules
 
-- Always produce or repair a bundle before finalizing a capture job.
-- Always run `uv run clipsmith validate-bundle "<bundle_dir>" --json` before
-  reporting a bundle as ready.
-- Never write OKF records or knowledge notes from Clipsmith.
-- Only sink to an Alcove workspace when the user explicitly asks for that sink.
-- Do not fabricate captured content when browser automation, login, or network
-  access fails. Preserve partial assets and report warnings.
+- Produce or repair a bundle before finalizing a capture job.
+- Validate bundles before reporting them ready.
+- Do not write knowledge records.
+- Sink to an external inbox only when explicitly asked.
+- Do not fabricate content when login, browser automation, or network access
+  fails. Preserve partial assets and report warnings.
+
+## Provider Execution
+
+The only supported provider execution mode is `skill`.
 
 ## Git Rules
 
-Do not run `git commit`, `git push`, tagging, release publishing, or
-history-rewriting commands unless the user explicitly asks for them.
+Do not run `git commit`, `git push`, tagging, release publishing, or history
+rewrites unless the user explicitly asks.

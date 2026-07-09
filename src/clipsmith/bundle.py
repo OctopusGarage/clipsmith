@@ -37,6 +37,32 @@ class AssetFile:
 
 
 @dataclass(frozen=True)
+class BundleIssue:
+    kind: str
+    path: str
+    message: str
+
+    def to_json_dict(self) -> dict[str, str]:
+        return {
+            "kind": self.kind,
+            "path": self.path,
+            "message": self.message,
+        }
+
+
+@dataclass(frozen=True)
+class BundleValidation:
+    issues: tuple[BundleIssue, ...] = ()
+
+    @property
+    def is_valid(self) -> bool:
+        return not self.issues
+
+    def to_json_dict(self) -> dict[str, list[dict[str, str]]]:
+        return {"issues": [issue.to_json_dict() for issue in self.issues]}
+
+
+@dataclass(frozen=True)
 class CaptureBundle:
     schema: str
     id: str
@@ -59,15 +85,7 @@ class CaptureBundle:
 class BundleRepository:
     def read(self, root: Path | str) -> CaptureBundle:
         root_path = Path(root).expanduser()
-        capture_path = root_path / "capture.json"
-        try:
-            payload = json.loads(capture_path.read_text(encoding="utf-8"))
-        except OSError as exc:
-            raise BundleError(f"Could not read {capture_path}: {exc}") from exc
-        except json.JSONDecodeError as exc:
-            raise BundleError(f"Could not parse {capture_path}: {exc}") from exc
-        if not isinstance(payload, dict):
-            raise BundleError("capture.json must contain a JSON object")
+        payload = self._read_payload(root_path)
         return self._bundle_from_payload(payload)
 
     def write(self, root: Path | str, bundle: CaptureBundle) -> Path:
@@ -81,52 +99,60 @@ class BundleRepository:
         )
         return path
 
-    def validate(self, root: Path | str) -> list[dict]:
+    def validate(self, root: Path | str) -> list[dict[str, str]]:
+        return self.validate_result(root).to_json_dict()["issues"]
+
+    def validate_result(self, root: Path | str) -> BundleValidation:
         root_path = Path(root).expanduser()
-        issues: list[dict] = []
+        issues: list[BundleIssue] = []
         capture_path = root_path / "capture.json"
         if not capture_path.is_file():
-            return [
-                {
-                    "kind": "missing_capture_json",
-                    "path": "capture.json",
-                    "message": "Bundle is missing capture.json",
-                }
-            ]
+            return BundleValidation(
+                (
+                    BundleIssue(
+                        kind="missing_capture_json",
+                        path="capture.json",
+                        message="Bundle is missing capture.json",
+                    ),
+                )
+            )
         try:
-            bundle = self.read(root_path)
+            payload = self._read_payload(root_path)
+            bundle = self._bundle_from_payload(payload)
         except BundleError as exc:
-            return [
-                {
-                    "kind": "invalid_capture_json",
-                    "path": "capture.json",
-                    "message": str(exc),
-                }
-            ]
+            return BundleValidation(
+                (
+                    BundleIssue(
+                        kind="invalid_capture_json",
+                        path="capture.json",
+                        message=str(exc),
+                    ),
+                )
+            )
         if bundle.schema != BUNDLE_SCHEMA:
             issues.append(
-                {
-                    "kind": "unsupported_schema",
-                    "path": "capture.json",
-                    "message": f"Unsupported schema: {bundle.schema}",
-                }
+                BundleIssue(
+                    kind="unsupported_schema",
+                    path="capture.json",
+                    message=f"Unsupported schema: {bundle.schema}",
+                )
             )
         for field_name in REQUIRED_FIELDS:
-            if field_name not in bundle.payload_keys:
+            if field_name not in payload:
                 issues.append(
-                    {
-                        "kind": "missing_required_field",
-                        "path": "capture.json",
-                        "message": f"Required field is missing: {field_name}",
-                    }
+                    BundleIssue(
+                        kind="missing_required_field",
+                        path="capture.json",
+                        message=f"Required field is missing: {field_name}",
+                    )
                 )
         if bundle.status not in VALID_STATUSES:
             issues.append(
-                {
-                    "kind": "invalid_status",
-                    "path": "capture.json",
-                    "message": f"Invalid status: {bundle.status}",
-                }
+                BundleIssue(
+                    kind="invalid_status",
+                    path="capture.json",
+                    message=f"Invalid status: {bundle.status}",
+                )
             )
         for content_file in bundle.content_files:
             path_issue = self._invalid_bundle_path_issue(
@@ -143,11 +169,11 @@ class BundleRepository:
                 and not (root_path / content_file.path).is_file()
             ):
                 issues.append(
-                    {
-                        "kind": "missing_content_file",
-                        "path": content_file.path,
-                        "message": f"Required content file is missing: {content_file.path}",
-                    }
+                    BundleIssue(
+                        kind="missing_content_file",
+                        path=content_file.path,
+                        message=f"Required content file is missing: {content_file.path}",
+                    )
                 )
         for asset in bundle.assets:
             path_issue = self._invalid_bundle_path_issue(
@@ -161,13 +187,25 @@ class BundleRepository:
                 continue
             if not (root_path / asset.path).is_file():
                 issues.append(
-                    {
-                        "kind": "missing_asset_file",
-                        "path": asset.path,
-                        "message": f"Asset file is missing: {asset.path}",
-                    }
+                    BundleIssue(
+                        kind="missing_asset_file",
+                        path=asset.path,
+                        message=f"Asset file is missing: {asset.path}",
+                    )
                 )
-        return issues
+        return BundleValidation(tuple(issues))
+
+    def _read_payload(self, root_path: Path) -> dict[str, Any]:
+        capture_path = root_path / "capture.json"
+        try:
+            payload = json.loads(capture_path.read_text(encoding="utf-8"))
+        except OSError as exc:
+            raise BundleError(f"Could not read {capture_path}: {exc}") from exc
+        except json.JSONDecodeError as exc:
+            raise BundleError(f"Could not parse {capture_path}: {exc}") from exc
+        if not isinstance(payload, dict):
+            raise BundleError("capture.json must contain a JSON object")
+        return payload
 
     def _bundle_from_payload(self, payload: dict[str, Any]) -> CaptureBundle:
         content_file_payloads = payload.get("content_files", [])
@@ -219,22 +257,22 @@ class BundleRepository:
         bundle_path: str,
         kind: str,
         label: str,
-    ) -> dict[str, str] | None:
+    ) -> BundleIssue | None:
         path = Path(bundle_path)
         if path.is_absolute():
-            return {
-                "kind": kind,
-                "path": bundle_path,
-                "message": f"{label} path must stay within bundle root: {bundle_path}",
-            }
+            return BundleIssue(
+                kind=kind,
+                path=bundle_path,
+                message=f"{label} path must stay within bundle root: {bundle_path}",
+            )
         try:
             root_resolved = root_path.resolve(strict=False)
             candidate_resolved = (root_path / path).resolve(strict=False)
             candidate_resolved.relative_to(root_resolved)
         except (OSError, ValueError):
-            return {
-                "kind": kind,
-                "path": bundle_path,
-                "message": f"{label} path must stay within bundle root: {bundle_path}",
-            }
+            return BundleIssue(
+                kind=kind,
+                path=bundle_path,
+                message=f"{label} path must stay within bundle root: {bundle_path}",
+            )
         return None

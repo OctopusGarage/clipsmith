@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from clipsmith.bundle import BundleRepository, CaptureBundle
+from clipsmith.bundle import BundleRepository, BundleValidation, CaptureBundle
 
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -11,6 +11,24 @@ def test_valid_bundle_has_no_issues():
     issues = BundleRepository().validate(FIXTURES / "valid-xhs-bundle")
 
     assert issues == []
+
+
+def test_validate_result_returns_typed_bundle_issues():
+    validation = BundleRepository().validate_result(
+        FIXTURES / "invalid-missing-summary"
+    )
+
+    assert isinstance(validation, BundleValidation)
+    assert not validation.is_valid
+    assert validation.to_json_dict() == {
+        "issues": [
+            {
+                "kind": "missing_content_file",
+                "path": "summary.md",
+                "message": "Required content file is missing: summary.md",
+            }
+        ]
+    }
 
 
 def test_missing_required_content_file_is_reported():

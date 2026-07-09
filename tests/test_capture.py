@@ -3,11 +3,43 @@ from pathlib import Path
 
 import pytest
 
-from clipsmith.capture import CaptureError, finalize_capture_job, start_capture_job
+from clipsmith.capture import (
+    CaptureError,
+    CaptureJobStore,
+    finalize_capture_job,
+    start_capture_job,
+)
 from clipsmith.cli import main
 
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def test_capture_job_store_owns_id_clock_and_status_persistence(tmp_path):
+    ids = iter(["cap-fixed"])
+    times = iter(["2026-07-09T01:00:00Z", "2026-07-09T01:05:00Z"])
+    store = CaptureJobStore(
+        state_dir=tmp_path,
+        id_factory=lambda: next(ids),
+        clock=lambda: next(times),
+    )
+
+    job = store.create(target="https://example.com/article", provider="web")
+
+    assert job.job_id == "cap-fixed"
+    assert job.job_path == tmp_path / "jobs" / "cap-fixed"
+    assert job.created_at == "2026-07-09T01:00:00Z"
+    assert job.updated_at == "2026-07-09T01:00:00Z"
+
+    updated = store.mark_done(job, FIXTURES / "valid-xhs-bundle")
+
+    assert updated.status == "done"
+    assert updated.bundle_path == FIXTURES / "valid-xhs-bundle"
+    assert updated.updated_at == "2026-07-09T01:05:00Z"
+    persisted = json.loads((updated.job_path / "job.json").read_text(encoding="utf-8"))
+    assert persisted["job_id"] == "cap-fixed"
+    assert persisted["status"] == "done"
+    assert persisted["bundle_path"] == str(FIXTURES / "valid-xhs-bundle")
 
 
 def test_start_capture_job_infers_provider_and_persists_metadata(tmp_path):
