@@ -1,0 +1,52 @@
+{
+  "profiles": {
+    "anthropic-building-effective-agents": {
+      "description": "Anthropic engineering article used to guard generic article cleanup quality.",
+      "source_url": "https://www.anthropic.com/engineering/building-effective-agents",
+      "expected_status": "complete",
+      "title_includes": "Building Effective AI Agents",
+      "min_post_chars": 15000,
+      "required_phrases": [
+        "What are agents?",
+        "Workflow: Prompt chaining",
+        "Workflow: Routing",
+        "Workflow: Parallelization",
+        "Workflow: Orchestrator-workers",
+        "Workflow: Evaluator-optimizer",
+        "Appendix 1: Agents in practice",
+        "Appendix 2: Prompt engineering your tools"
+      ],
+      "forbidden_phrases": [
+        "Get the developer newsletter",
+        "Please provide your email address",
+        "Products Claude",
+        "Terms and policies",
+        "Privacy policy"
+      ]
+    },
+    "openai-core-dump-epidemiology": {
+      "description": "OpenAI engineering article that verifies Playwright capture bypasses fetch-only Cloudflare failure.",
+      "source_url": "https://openai.com/index/core-dump-epidemiology-data-infrastructure-bug/",
+      "expected_status": "complete",
+      "title_includes": "Core dump epidemiology",
+      "min_post_chars": 20000,
+      "required_phrases": [
+        "First debugging attempt: carefully examining a few core dumps",
+        "Clues from the stack",
+        "Doctor or epidemiologist?",
+        "Bug #1: the bad host",
+        "Bug #2: the libunwind bug",
+        "The power of a population-level diagnosis"
+      ],
+      "forbidden_phrases": [
+        "This page couldn’t load",
+        "Reload to try again",
+        "Share",
+        "Keep reading",
+        "View all",
+        "Careers",
+        "Privacy policy"
+      ]
+    }
+  }
+}

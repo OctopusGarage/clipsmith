@@ -16,14 +16,16 @@ Capture `$ARGUMENTS` through the standard workflow.
 
 3. Run the returned provider skill. Reuse its existing script or workflow.
 4. Normalize output into a bundle with `capture.json`.
-5. Validate and finalize:
+5. For generic web/article captures, run the Web Capture AI Eval from
+   `docs/web-capture-ai-eval.md`.
+6. Validate and finalize:
 
    ```bash
    uv run clipsmith validate-bundle "<bundle_dir>" --json
    uv run clipsmith capture finalize "<job_id_or_job_path>" "<bundle_dir>" --state-dir /tmp/clipsmith-state
    ```
 
-6. Sink only if explicitly requested:
+7. Sink only if explicitly requested:
 
    ```bash
    uv run clipsmith sink inbox "<bundle_dir>" "<workspace>" --json

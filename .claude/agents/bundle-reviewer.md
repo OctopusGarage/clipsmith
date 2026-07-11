@@ -21,6 +21,13 @@ git status --short
 - Skill: `SKILL.md`, `agents/openai.yaml`, and declared executors are present.
 - Boundary: Clipsmith does not write knowledge records; external sinks are
   explicit and filesystem-only.
+- Web/article quality: when reviewing `clipsmith-web`, an article provider, or a
+  web capture bundle, run `docs/web-capture-ai-eval.md` and include the required
+  PASS/FAIL report.
+- Provider quality gate: for any provider skill change, inspect
+  `skills/<name>/quality-gate.json`, run applicable deterministic checks, perform
+  required agent AI eval, and include the report required by
+  `docs/provider-quality-gate.md`.
 
 ## Commands
 

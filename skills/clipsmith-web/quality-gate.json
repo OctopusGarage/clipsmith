@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "skill": "clipsmith-web",
+  "capture_kind": "article",
+  "raw_evidence": [
+    "raw/source.html",
+    "raw/rendered.txt",
+    "raw/metadata.json"
+  ],
+  "deterministic_checks": [
+    {
+      "name": "bundle validation",
+      "command": "uv run clipsmith validate-bundle <bundle_dir> --json"
+    },
+    {
+      "name": "known profile eval",
+      "command": "node scripts/eval.mjs --bundle_dir <bundle_dir> --profile <profile>",
+      "profiles": [
+        "anthropic-building-effective-agents",
+        "openai-core-dump-epidemiology"
+      ]
+    }
+  ],
+  "agent_ai_eval": {
+    "required": true,
+    "prompt": "prompts/evaluate-article.md",
+    "report": "docs/web-capture-ai-eval.md"
+  },
+  "ready_report": [
+    "bundle validation result",
+    "deterministic eval result when profile exists",
+    "Web capture AI eval: PASS|FAIL"
+  ]
+}

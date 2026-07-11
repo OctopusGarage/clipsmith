@@ -61,6 +61,7 @@ Use the CLI for deterministic protocol work:
 
 ```bash
 clipsmith providers --json
+clipsmith quality-gates --json
 clipsmith capture start "https://example.com/post" --state-dir /tmp/clipsmith-state
 clipsmith validate-bundle /path/to/bundle --json
 clipsmith capture finalize "<job_id_or_job_path>" /path/to/bundle --state-dir /tmp/clipsmith-state
@@ -75,8 +76,9 @@ In a source checkout, use `uv run clipsmith ...`.
 1. `capture start` selects a provider and creates a job.
 2. The provider skill captures and normalizes output into a bundle.
 3. `validate-bundle` checks the bundle contract.
-4. `capture finalize` marks the job done.
-5. A sink copies the bundle only when requested.
+4. Provider quality gates check deterministic rules and required agent AI eval.
+5. `capture finalize` marks the job done.
+6. A sink copies the bundle only when requested.
 
 Current provider execution mode is `skill`.
 
@@ -106,9 +108,15 @@ Sinks:
 ## Development
 
 ```bash
+uv run clipsmith quality-gates --json
 uv run pytest -q
 ./script/check-health.sh
 ```
+
+Provider skills must declare `quality-gate.json`. Article-like captures also use
+agent-run AI evals to guard extraction quality. See
+[Provider Quality Gate](docs/provider-quality-gate.md) and
+[Web Capture AI Eval](docs/web-capture-ai-eval.md).
 
 ## Docs
 
@@ -117,4 +125,6 @@ uv run pytest -q
 - [Release](RELEASE.md)
 - [Development](docs/DEVELOP.md)
 - [Capture Bundle Contract](docs/capture-bundle-contract.md)
+- [Provider Quality Gate](docs/provider-quality-gate.md)
+- [Web Capture AI Eval](docs/web-capture-ai-eval.md)
 - [Inbox Integration](docs/inbox-integration.md)

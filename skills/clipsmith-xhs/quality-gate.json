@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "skill": "clipsmith-xhs",
+  "capture_kind": "social-post",
+  "raw_evidence": [
+    "post.md",
+    "summary.md",
+    "ocr.md or ocr.txt when OCR runs",
+    "downloaded post and comment media",
+    "capture.json assets"
+  ],
+  "deterministic_checks": [
+    {
+      "name": "bundle validation",
+      "command": "uv run clipsmith validate-bundle <bundle_dir> --json"
+    },
+    {
+      "name": "provider regression script",
+      "command": "bash skills/clipsmith-xhs/tests/test_regression.sh"
+    }
+  ],
+  "agent_ai_eval": {
+    "required": true,
+    "prompt": "docs/provider-quality-gate.md",
+    "reason": "XHS captures combine text, OCR, media, and comments, so model judgment is required before reporting success."
+  },
+  "ready_report": [
+    "bundle validation result",
+    "OCR preservation when applicable",
+    "media and comment coverage",
+    "Provider quality gate: PASS|FAIL"
+  ]
+}

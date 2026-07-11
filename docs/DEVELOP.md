@@ -48,6 +48,7 @@ Every skill directory needs:
 
 - `SKILL.md`
 - `agents/openai.yaml`
+- `quality-gate.json`
 
 Executable provider skills also need:
 
@@ -58,8 +59,23 @@ Executable provider skills also need:
 
 ## Quality Gates
 
+`uv run clipsmith quality-gates --json` validates provider quality gate
+declarations and returns a typed plan for each skill. Agents and CI should use
+that command instead of re-implementing quality gate checks in prompts or shell
+snippets.
+
 `./script/check-health.sh` verifies tests, provider JSON, fixture validation,
-skill metadata, shell syntax, relative bundle paths, and basic secret hygiene.
+skill metadata, provider quality gate plans, shell syntax, relative bundle
+paths, and basic secret hygiene.
+
+Provider quality rules live in:
+
+- `docs/provider-quality-gate.md`
+- `docs/web-capture-ai-eval.md`
+
+When changing a provider, prompt, extraction script, raw evidence policy, or eval
+profile, run the relevant deterministic checks and perform the required agent AI
+eval before reporting the work ready.
 
 Optional local hooks:
 

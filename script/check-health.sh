@@ -26,6 +26,9 @@ else
   echo "ruff unavailable; skipping format check"
 fi
 
+echo "== provider quality gates =="
+uv run clipsmith quality-gates --json >/tmp/clipsmith-quality-gates.json
+
 echo "== skill contract =="
 uv run python - <<'PY'
 from __future__ import annotations

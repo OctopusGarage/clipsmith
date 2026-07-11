@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "skill": "clipsmith-ocr",
+  "capture_kind": "ocr",
+  "raw_evidence": [
+    "ocr.md or ocr.txt",
+    "source OCR image when preserved",
+    "post.md",
+    "summary.md"
+  ],
+  "deterministic_checks": [
+    {
+      "name": "bundle validation",
+      "command": "uv run clipsmith validate-bundle <bundle_dir> --json"
+    }
+  ],
+  "agent_ai_eval": {
+    "required": true,
+    "prompt": "docs/provider-quality-gate.md",
+    "reason": "OCR captures require model judgment to ensure raw transcript is preserved and summary does not replace source text."
+  },
+  "ready_report": [
+    "bundle validation result",
+    "raw OCR transcript preservation",
+    "source image preservation status",
+    "Provider quality gate: PASS|FAIL"
+  ]
+}

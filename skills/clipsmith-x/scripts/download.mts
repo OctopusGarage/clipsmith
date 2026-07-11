@@ -19,7 +19,10 @@ import { createHash } from "node:crypto";
 
 const CDP = "http://localhost:9222";
 const POST_URL = process.argv[2];
-const OUTPUT_DIR = (process.argv[3] || "~/Downloads/x").replace(/^~/, process.env.HOME);
+const OUTPUT_DIR = (process.argv[3] || "~/Downloads/x").replace(
+  /^~/,
+  process.env.HOME || "",
+);
 
 if (!POST_URL) {
   console.error("Usage: node download.mts <post-url> [output-dir]");
@@ -130,7 +133,7 @@ async function download() {
     } else {
       // X may not have tweetText — walk all text nodes in article
       // Collect all meaningful text (skip nav/metadata only)
-      const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT, null, false);
+      const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT, null);
       const parts: string[] = [];
       let node: Text | null;
       while ((node = walker.nextNode() as Text | null)) {

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "skill": "clipsmith-x",
+  "capture_kind": "social-post",
+  "raw_evidence": [
+    "post.md",
+    "downloaded images or videos when present",
+    "capture.json assets"
+  ],
+  "deterministic_checks": [
+    {
+      "name": "bundle validation",
+      "command": "uv run clipsmith validate-bundle <bundle_dir> --json"
+    }
+  ],
+  "agent_ai_eval": {
+    "required": true,
+    "prompt": "docs/provider-quality-gate.md",
+    "reason": "Social post captures require model judgment for text completeness, media consistency, and warning accuracy."
+  },
+  "ready_report": [
+    "bundle validation result",
+    "post text completeness",
+    "media asset count and warnings",
+    "Provider quality gate: PASS|FAIL"
+  ]
+}

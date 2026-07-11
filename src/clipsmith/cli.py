@@ -17,6 +17,7 @@ from clipsmith.installation import (
     print_doctor,
 )
 from clipsmith.providers import ProviderInfo, ProviderRegistry
+from clipsmith.quality_gate import validate_project_quality_gate_result
 from clipsmith.sinks import DirectorySink, InboxSink
 
 
@@ -96,6 +97,16 @@ def build_parser() -> argparse.ArgumentParser:
     doctor_parser.add_argument(
         "--json", action="store_true", help="Print checks as JSON"
     )
+
+    quality_parser = subparsers.add_parser(
+        "quality-gates", help="Validate provider quality gate declarations"
+    )
+    quality_parser.add_argument(
+        "--json", action="store_true", help="Print quality gate plans as JSON"
+    )
+    quality_parser.add_argument(
+        "--root", default=".", help="Project root containing the skills directory"
+    )
     return parser
 
 
@@ -120,6 +131,8 @@ def main(argv: list[str] | None = None) -> int:
             return _handle_uninstall(args)
         if args.command == "doctor":
             return _handle_doctor(args)
+        if args.command == "quality-gates":
+            return _handle_quality_gates(args)
     except ClipsmithError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -215,6 +228,22 @@ def _handle_doctor(args: argparse.Namespace) -> int:
         for line in print_doctor(checks):
             print(line)
     return doctor_exit_code(checks)
+
+
+def _handle_quality_gates(args: argparse.Namespace) -> int:
+    result = validate_project_quality_gate_result(args.root)
+    if args.json:
+        print(json.dumps(result.to_json_dict(), ensure_ascii=False))
+    elif result.issues:
+        print("kind\tpath\tmessage")
+        for issue in result.issues:
+            print(f"{issue.kind}\t{issue.path}\t{issue.message}")
+    else:
+        print("Provider quality gates are valid")
+        for plan in result.plans:
+            checks = ", ".join(check.name for check in plan.deterministic_checks)
+            print(f"{plan.skill}\t{plan.capture_kind}\t{checks}")
+    return 1 if result.issues else 0
 
 
 def _add_install_options(parser: argparse.ArgumentParser) -> None:

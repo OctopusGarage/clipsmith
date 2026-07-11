@@ -42,7 +42,9 @@ const { values } = parseArgs({
   },
 });
 
-function pickString(primary: string, fallback: string): string | undefined {
+type ArgKey = keyof typeof values;
+
+function pickString(primary: ArgKey, fallback: ArgKey): string | undefined {
   const primaryValue = values[primary];
   if (typeof primaryValue === 'string') {
     return primaryValue;

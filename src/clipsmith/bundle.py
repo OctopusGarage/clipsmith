@@ -14,6 +14,13 @@ VALID_STATUSES = {"complete", "partial", "failed", "needs_manual_action"}
 CAPTURE_FILE = "capture.json"
 ALLOWED_CONTENT_FILE_PATHS = {"post.md", "summary.md", "ocr.md", "ocr.txt"}
 ALLOWED_OCR_IMAGE_ASSET_KINDS = {"ocr-image"}
+ALLOWED_WEB_RAW_ASSET_PATHS_BY_KIND = {
+    "web-cleaned-html": {"raw/source.html"},
+    "web-rendered-text": {"raw/rendered.txt"},
+    "web-metadata": {"raw/metadata.json"},
+    "web-full-html-compressed": {"raw/source.full.html.gz"},
+    "web-mhtml": {"raw/page.mhtml"},
+}
 REQUIRED_FIELDS = (
     "schema",
     "id",
@@ -206,15 +213,12 @@ class BundleRepository:
                 issues.append(path_issue)
                 continue
             referenced_file_paths.add(asset.path)
-            if asset.kind not in ALLOWED_OCR_IMAGE_ASSET_KINDS:
+            if not self._asset_file_is_allowed(asset):
                 issues.append(
                     BundleIssue(
                         kind="unsupported_asset_file",
                         path=asset.path,
-                        message=(
-                            "Only OCR image assets are allowed in a bundle: "
-                            f"{asset.path}"
-                        ),
+                        message=self._unsupported_asset_file_message(asset),
                     )
                 )
                 continue
@@ -337,3 +341,15 @@ class BundleRepository:
                 message=f"{label} path must stay within bundle root: {bundle_path}",
             )
         return None
+
+    def _asset_file_is_allowed(self, asset: AssetFile) -> bool:
+        if asset.kind in ALLOWED_OCR_IMAGE_ASSET_KINDS:
+            return True
+        return asset.path in ALLOWED_WEB_RAW_ASSET_PATHS_BY_KIND.get(asset.kind, set())
+
+    def _unsupported_asset_file_message(self, asset: AssetFile) -> str:
+        if asset.kind in ALLOWED_WEB_RAW_ASSET_PATHS_BY_KIND:
+            return f"Unsupported asset file for kind {asset.kind}: {asset.path}"
+        return (
+            f"Only OCR and web raw audit assets are allowed in a bundle: {asset.path}"
+        )

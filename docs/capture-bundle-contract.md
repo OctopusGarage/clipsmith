@@ -15,7 +15,7 @@ Schema: `clipsmith.capture_bundle.v1`.
 - `platform`: `xhs`, `x`, `wechat`, `web`, or `image-ocr`
 - `source_url`: original URL or local file path
 - `content_files`: relative content file references
-- `assets`: relative OCR image file references, or an empty array
+- `assets`: relative asset file references, or an empty array
 - `warnings`: warning strings
 - `status`: `complete`, `partial`, `failed`, or `needs_manual_action`
 
@@ -38,7 +38,8 @@ Common optional fields:
 `assets` entries:
 
 - `path`: relative path inside the bundle
-- `kind`: `ocr-image`
+- `kind`: `ocr-image`, `web-cleaned-html`, `web-rendered-text`,
+  `web-metadata`, `web-full-html-compressed`, or `web-mhtml`
 
 Final bundle directories may contain only:
 
@@ -47,9 +48,18 @@ Final bundle directories may contain only:
 - `summary.md`
 - `ocr.md` or `ocr.txt` when OCR text was produced during capture
 - OCR image files referenced from `assets` with kind `ocr-image`
+- web raw audit files referenced from `assets` with fixed path/kind pairs:
+  - `raw/source.html` as `web-cleaned-html`
+  - `raw/rendered.txt` as `web-rendered-text`
+  - `raw/metadata.json` as `web-metadata`
+  - `raw/source.full.html.gz` as `web-full-html-compressed`
+  - `raw/page.mhtml` as `web-mhtml`
 
 Paths must stay inside the bundle. Absolute paths and `..` traversal are
 validation issues.
+
+The validator intentionally does not allow arbitrary `raw/` files. Web raw
+assets are audit evidence for source review, not a general archive area.
 
 ## Validate
 

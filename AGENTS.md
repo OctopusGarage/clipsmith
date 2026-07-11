@@ -15,6 +15,7 @@ records.
 
 ```bash
 uv run clipsmith providers --json
+uv run clipsmith quality-gates --json
 uv run clipsmith validate-bundle tests/fixtures/valid-xhs-bundle --json
 uv run pytest -q
 ./script/check-health.sh
@@ -28,14 +29,25 @@ Every `skills/<name>/` directory needs:
 
 - `SKILL.md` with matching frontmatter `name`
 - `agents/openai.yaml`
+- `quality-gate.json`
 
 Executable skills also need `skill.yaml` and the referenced executor.
 `clipsmith-capture` may omit `skill.yaml` because it routes to provider skills.
+
+Provider quality gates are defined in `docs/provider-quality-gate.md`. When
+modifying a provider skill, adding a provider, or changing extraction prompts,
+run the relevant deterministic checks and use Codex's own model judgment for the
+required agent AI eval before reporting success.
 
 ## Capture Rules
 
 - Produce or repair a bundle before finalizing a capture job.
 - Validate bundles before reporting them ready.
+- For generic web/article captures or changes to web/article provider skills,
+  run the Web Capture AI Eval in `docs/web-capture-ai-eval.md`. Codex must use
+  its own model judgment for this eval, not only deterministic tests.
+- For any provider change, include the `Provider quality gate: PASS|FAIL` report
+  required by `docs/provider-quality-gate.md`.
 - Do not write knowledge records.
 - Sink to an external inbox only when explicitly asked.
 - Do not fabricate content when login, browser automation, or network access

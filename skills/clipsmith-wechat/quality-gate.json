@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "skill": "clipsmith-wechat",
+  "capture_kind": "article",
+  "raw_evidence": [
+    "article.mhtml when available",
+    "downloaded article images",
+    "post.md",
+    "summary.md"
+  ],
+  "deterministic_checks": [
+    {
+      "name": "bundle validation",
+      "command": "uv run clipsmith validate-bundle <bundle_dir> --json"
+    }
+  ],
+  "agent_ai_eval": {
+    "required": true,
+    "prompt": "docs/provider-quality-gate.md",
+    "reason": "WeChat pages are article-like captures and require model judgment for completeness and page chrome removal."
+  },
+  "ready_report": [
+    "bundle validation result",
+    "article body completeness",
+    "image and MHTML preservation status",
+    "Provider quality gate: PASS|FAIL"
+  ]
+}

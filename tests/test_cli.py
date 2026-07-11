@@ -171,3 +171,49 @@ def test_doctor_json_reports_tooling_status(tmp_path, monkeypatch, capsys):
     assert checks["node"]["status"] == "ok"
     assert checks["npm"]["status"] == "missing"
     assert checks["claude_skills_dir"]["status"] == "missing"
+
+
+def test_quality_gates_json_reports_typed_plans(tmp_path, capsys):
+    skill_dir = tmp_path / "skills" / "clipsmith-web"
+    skill_dir.mkdir(parents=True)
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    (docs_dir / "provider-quality-gate.md").write_text(
+        "# Provider Quality Gate\n", encoding="utf-8"
+    )
+    (skill_dir / "SKILL.md").write_text(
+        "---\nname: clipsmith-web\n---\n# clipsmith-web\n", encoding="utf-8"
+    )
+    (skill_dir / "quality-gate.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "skill": "clipsmith-web",
+                "capture_kind": "article",
+                "raw_evidence": ["post.md"],
+                "deterministic_checks": [
+                    {
+                        "name": "bundle validation",
+                        "command": "uv run clipsmith validate-bundle <bundle_dir> --json",
+                    }
+                ],
+                "agent_ai_eval": {
+                    "required": True,
+                    "prompt": "docs/provider-quality-gate.md",
+                },
+                "ready_report": ["Provider quality gate: PASS|FAIL"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    code = main(["quality-gates", "--root", str(tmp_path), "--json"])
+    captured = capsys.readouterr()
+
+    payload = json.loads(captured.out)
+    assert code == 0
+    assert payload["issues"] == []
+    assert payload["plans"][0]["skill"] == "clipsmith-web"
+    assert payload["plans"][0]["deterministic_checks"][0]["name"] == (
+        "bundle validation"
+    )

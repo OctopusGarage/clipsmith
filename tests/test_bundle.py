@@ -158,7 +158,91 @@ def test_non_ocr_assets_are_reported(tmp_path):
         {
             "kind": "unsupported_asset_file",
             "path": "image_01.jpg",
-            "message": "Only OCR image assets are allowed in a bundle: image_01.jpg",
+            "message": (
+                "Only OCR and web raw audit assets are allowed in a bundle: image_01.jpg"
+            ),
+        }
+    ]
+
+
+def test_web_raw_audit_assets_are_allowed_only_at_fixed_paths(tmp_path):
+    root = tmp_path / "bundle"
+    raw = root / "raw"
+    raw.mkdir(parents=True)
+    (root / "post.md").write_text("# Post\n", encoding="utf-8")
+    (root / "summary.md").write_text("# Summary\n", encoding="utf-8")
+    (raw / "source.html").write_text("<main><p>Article</p></main>\n", encoding="utf-8")
+    (raw / "rendered.txt").write_text("Article\n", encoding="utf-8")
+    (raw / "metadata.json").write_text("{}\n", encoding="utf-8")
+    (root / "capture.json").write_text(
+        json.dumps(
+            {
+                "schema": "clipsmith.capture_bundle.v1",
+                "id": "web-article",
+                "platform": "web",
+                "source_url": "https://example.com/article",
+                "content_files": [
+                    {
+                        "path": "summary.md",
+                        "kind": "summary",
+                        "required_for_review": True,
+                    },
+                    {"path": "post.md", "kind": "post", "required_for_review": True},
+                ],
+                "assets": [
+                    {"path": "raw/source.html", "kind": "web-cleaned-html"},
+                    {"path": "raw/rendered.txt", "kind": "web-rendered-text"},
+                    {"path": "raw/metadata.json", "kind": "web-metadata"},
+                ],
+                "warnings": [],
+                "status": "complete",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    issues = BundleRepository().validate(root)
+
+    assert issues == []
+
+
+def test_web_raw_audit_asset_wrong_path_is_reported(tmp_path):
+    root = tmp_path / "bundle"
+    raw = root / "raw"
+    raw.mkdir(parents=True)
+    (root / "post.md").write_text("# Post\n", encoding="utf-8")
+    (root / "summary.md").write_text("# Summary\n", encoding="utf-8")
+    (raw / "extra.html").write_text("<main>Extra</main>\n", encoding="utf-8")
+    (root / "capture.json").write_text(
+        json.dumps(
+            {
+                "schema": "clipsmith.capture_bundle.v1",
+                "id": "web-article",
+                "platform": "web",
+                "source_url": "https://example.com/article",
+                "content_files": [
+                    {
+                        "path": "summary.md",
+                        "kind": "summary",
+                        "required_for_review": True,
+                    },
+                    {"path": "post.md", "kind": "post", "required_for_review": True},
+                ],
+                "assets": [{"path": "raw/extra.html", "kind": "web-cleaned-html"}],
+                "warnings": [],
+                "status": "complete",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    issues = BundleRepository().validate(root)
+
+    assert issues == [
+        {
+            "kind": "unsupported_asset_file",
+            "path": "raw/extra.html",
+            "message": "Unsupported asset file for kind web-cleaned-html: raw/extra.html",
         }
     ]
 

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "skill": "clipsmith-capture",
+  "capture_kind": "router",
+  "raw_evidence": [
+    "delegated provider bundle"
+  ],
+  "deterministic_checks": [
+    {
+      "name": "provider registry",
+      "command": "uv run clipsmith providers --json"
+    },
+    {
+      "name": "bundle validation after delegation",
+      "command": "uv run clipsmith validate-bundle <bundle_dir> --json"
+    }
+  ],
+  "agent_ai_eval": {
+    "required": false,
+    "reason": "Router quality is evaluated through the selected provider skill."
+  },
+  "ready_report": [
+    "selected provider",
+    "bundle validation result",
+    "provider quality gate result"
+  ]
+}
