@@ -39,6 +39,10 @@ modifying a provider skill, adding a provider, or changing extraction prompts,
 run the relevant deterministic checks and use Codex's own model judgment for the
 required agent AI eval before reporting success.
 
+Distribution hygiene is defined in `docs/skill-distribution.md`. Do not package
+source-only evals, tests, local dependencies, or virtual environments into
+runtime skill installs.
+
 ## Capture Rules
 
 - Produce or repair a bundle before finalizing a capture job.

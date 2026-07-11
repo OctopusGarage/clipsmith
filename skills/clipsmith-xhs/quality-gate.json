@@ -4,8 +4,7 @@
   "capture_kind": "social-post",
   "raw_evidence": [
     "post.md",
-    "summary.md",
-    "ocr.md or ocr.txt when OCR runs",
+    "ocr.md",
     "downloaded post and comment media",
     "capture.json assets"
   ],
@@ -17,16 +16,31 @@
     {
       "name": "provider regression script",
       "command": "bash skills/clipsmith-xhs/tests/test_regression.sh"
+    },
+    {
+      "name": "known XHS fixture eval",
+      "command": "node skills/clipsmith-xhs/scripts/eval.mjs --fixture xhs-skill-long-term-asset --profile xhs-skill-long-term-asset",
+      "profiles": [
+        "xhs-skill-long-term-asset"
+      ]
+    },
+    {
+      "name": "known XHS fixture OCR eval",
+      "command": "node skills/clipsmith-xhs/scripts/eval.mjs --fixture xhs-skill-long-term-asset --profile xhs-skill-long-term-asset --run_ocr",
+      "profiles": [
+        "xhs-skill-long-term-asset"
+      ]
     }
   ],
   "agent_ai_eval": {
     "required": true,
-    "prompt": "docs/provider-quality-gate.md",
+    "prompt": "prompts/evaluate-capture.md",
+    "report": "evals/ai-evals/xhs-skill-long-term-asset.md",
     "reason": "XHS captures combine text, OCR, media, and comments, so model judgment is required before reporting success."
   },
   "ready_report": [
     "bundle validation result",
-    "OCR preservation when applicable",
+    "default OCR preservation",
     "media and comment coverage",
     "Provider quality gate: PASS|FAIL"
   ]

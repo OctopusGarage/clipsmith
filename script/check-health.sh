@@ -17,7 +17,7 @@ uv run clipsmith validate-bundle tests/fixtures/valid-xhs-bundle --json
 echo "== shell syntax =="
 while IFS= read -r file; do
   bash -n "$file"
-done < <({ [ -f install.sh ] && printf '%s\n' install.sh; find script .githooks -type f; } | sort)
+done < <({ [ -f install.sh ] && printf '%s\n' install.sh; find script .githooks -type f ! -name '*.mjs'; } | sort)
 
 echo "== optional python formatting =="
 if uv run ruff --version >/dev/null 2>&1; then
@@ -28,6 +28,56 @@ fi
 
 echo "== provider quality gates =="
 uv run clipsmith quality-gates --json >/tmp/clipsmith-quality-gates.json
+
+echo "== wheel package hygiene =="
+wheel_dir="$(mktemp -d)"
+trap 'rm -rf "$wheel_dir"' EXIT
+uv build --wheel --out-dir "$wheel_dir" >/tmp/clipsmith-build-wheel.log
+wheel_path="$(find "$wheel_dir" -name '*.whl' -type f | head -1)"
+[ -n "$wheel_path" ] || { echo "wheel build produced no wheel" >&2; exit 1; }
+uv run python - "$wheel_path" <<'PY'
+from __future__ import annotations
+
+import re
+import sys
+import zipfile
+from pathlib import PurePosixPath
+
+wheel_path = sys.argv[1]
+blocked = re.compile(
+    r"^clipsmith/skills/.*/(evals|tests|node_modules|\.venv|playwright-report|test-results)/"
+)
+required = {
+    "clipsmith/skills/clipsmith-capture/SKILL.md",
+    "clipsmith/skills/clipsmith-ocr/SKILL.md",
+    "clipsmith/skills/clipsmith-web/SKILL.md",
+    "clipsmith/skills/clipsmith-wechat/SKILL.md",
+    "clipsmith/skills/clipsmith-x/SKILL.md",
+    "clipsmith/skills/clipsmith-xhs/SKILL.md",
+}
+
+with zipfile.ZipFile(wheel_path) as wheel:
+    names = set(wheel.namelist())
+
+blocked_names = sorted(name for name in names if blocked.search(name))
+missing = sorted(required - names)
+py_cache = sorted(
+    name
+    for name in names
+    if "__pycache__" in PurePosixPath(name).parts or name.endswith(".pyc")
+)
+
+if blocked_names or missing or py_cache:
+    for name in blocked_names:
+        print(f"ERROR: wheel includes development asset: {name}", file=sys.stderr)
+    for name in py_cache:
+        print(f"ERROR: wheel includes Python cache file: {name}", file=sys.stderr)
+    for name in missing:
+        print(f"ERROR: wheel missing runtime skill file: {name}", file=sys.stderr)
+    sys.exit(1)
+
+print("wheel package hygiene OK")
+PY
 
 echo "== skill contract =="
 uv run python - <<'PY'

@@ -27,6 +27,11 @@ Current profiles:
 
 - `anthropic-building-effective-agents`
 - `openai-core-dump-epidemiology`
+- `kingson-agent-runtime-skill-ai`
+
+These profiles and their baselines are source-repo maintenance assets. Packaged
+skill installs may omit `evals/`; the runtime skill still includes the prompts
+and executor needed for live capture.
 
 ## Agent AI Eval
 

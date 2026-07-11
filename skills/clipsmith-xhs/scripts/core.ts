@@ -68,6 +68,8 @@ export interface DownloadPostResult {
   post_url: string;
   publish_time: string;
   post_md_file: string;
+  ocr_md_file?: string;
+  ocr_count: number;
   comments_json_file?: string;
   comments_md_file?: string;
   comments_dir?: string;
@@ -78,6 +80,7 @@ export interface DownloadPostResult {
   comment_image_count: number;
   failed_count: number;
   failed: DownloadFailure[];
+  warnings: string[];
   files: string[];
 }
 

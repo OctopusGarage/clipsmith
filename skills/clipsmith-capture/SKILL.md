@@ -24,11 +24,19 @@ post, article, or local media item into a Clipsmith bundle.
    - `clipsmith-web`
    - `clipsmith-ocr`
 4. The platform skill may first run a copied downloader that produces raw
-   assets. Before returning, it must perform the `raw-output-to-capture.json`
-   normalization step: convert that output into a bundle directory containing
-   only `capture.json`, `post.md`, `summary.md`, optional `ocr.md`/`ocr.txt`
-   when OCR text was produced, plus separate OCR image files when preserving a
-   source image for an image OCR capture.
+   assets. Before returning, it must convert raw output into a bundle with the
+   shared normalizer when the provider does not already produce a validated
+   bundle:
+
+   ```bash
+   uv run clipsmith normalize raw "<provider>" "<raw_dir>" "<bundle_dir>" \
+     --source-url "<original_url>" \
+     --json
+   ```
+
+   The final bundle may contain only `capture.json`, `post.md`, `summary.md`,
+   optional `ocr.md`/`ocr.txt` when OCR text was produced, plus separate OCR
+   image files when preserving a source image for an image OCR capture.
    - If OCR ran at any point, write the raw OCR transcript to `ocr.md` or
      `ocr.txt` and declare it in `capture.json.content_files` with
      `kind: "ocr-text"`.

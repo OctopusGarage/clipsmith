@@ -8,10 +8,10 @@ description: >-
   "xiaohongshu post", "xhs images", "save post", "xhs note",
   "xiaohongshu download".
 license: MIT
-allowed-tools: "Bash(npx:*), Bash(pnpm:*)"
+allowed-tools: "Bash(npx:*), Bash(node:*), Bash(pnpm:*)"
 metadata:
   pattern: pipeline
-  compatibility: "macOS / Linux; requires Chrome with remote-debugging enabled (port 9223), profile ~/.chrome-labali-no-proxy, and authenticated XiaoHongShu session; Node.js ≥ 18 + tsx"
+  compatibility: "macOS / Linux; requires Chrome with remote-debugging enabled (port 9223), profile ~/.chrome-labali-no-proxy, and authenticated XiaoHongShu session; Node.js ≥ 20 + tsx"
 ---
 
 # clipsmith-xhs
@@ -33,27 +33,57 @@ The sections below (carousel logic, DOM extraction, anti-detection) are **implem
 
 ## Clipsmith Bundle Normalization
 
-The copied downloader produces a raw post folder with `post.md`, images, optional
-video, and optional comments. Before finalizing a Clipsmith capture job, run the
-`raw-output-to-capture.json` normalization step by converting that raw folder
-into a bundle:
+The copied downloader produces a raw post folder with `post.md`, downloaded
+images, default `ocr.md` for post images, optional video, and optional comments.
+It does not generate a summary by default. Before finalizing a Clipsmith capture
+job, convert the raw folder into a bundle with the shared normalizer:
 
-1. Keep `post.md` in the bundle directory; do not copy downloaded media,
-   comments, or comment images into the final bundle.
-2. If OCR is performed for any post image, write the raw OCR transcript to
-   `ocr.md`. Preserve per-image boundaries with headings such as
-   `## Image 001`; do not discard OCR text after using it for summarization.
-3. Create `summary.md` from the captured post text and OCR/comment context when
-   available.
-4. Write `capture.json` with schema `clipsmith.capture_bundle.v1`, platform
-   `xhs`, source/canonical URL, title/author/published metadata when available,
-   `content_files` entries for `summary.md` and `post.md`, plus an `ocr.md`
-   entry with `kind: "ocr-text"` when OCR ran, an empty `assets` array,
-   warnings, and status.
-5. Run `clipsmith validate-bundle "<bundle_dir>" --json`.
+```bash
+cd /Users/kingsonwu/programming/OctopusGarage/clipsmith
+uv run clipsmith normalize raw xhs "<raw_dir>" "<bundle_dir>" \
+  --source-url "<original_url>" \
+  --canonical-url "<canonical_url>" \
+  --title "<title>" \
+  --author "<author>" \
+  --captured-at "<iso8601_time>" \
+  --json
+uv run clipsmith validate-bundle "<bundle_dir>" --json
+```
 
-Do not call `clipsmith capture finalize` until `capture.json` exists and
+The normalizer keeps `post.md`, creates or copies `summary.md`, preserves
+`ocr.md`/`ocr.txt` as `kind: "ocr-text"` when OCR ran, and writes
+`capture.json`. It intentionally does not copy downloaded media, comments, or
+comment images into the final bundle because the bundle validator does not allow
+arbitrary raw assets.
+
+Do not call `uv run clipsmith capture finalize` until `capture.json` exists and
 validation succeeds.
+
+## Quality Evaluation
+
+Use the committed eval profile and fixture before changing prompt, OCR, or XHS
+capture behavior:
+
+```bash
+cd /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-xhs
+node scripts/eval.mjs \
+  --fixture xhs-skill-long-term-asset \
+  --profile xhs-skill-long-term-asset
+npx tsx scripts/ocr.ts \
+  --note_dir /tmp/clipsmith-xhs-ocr-fixture \
+  --images_dir evals/fixtures/xhs-skill-long-term-asset/images
+node scripts/eval.mjs \
+  --fixture xhs-skill-long-term-asset \
+  --profile xhs-skill-long-term-asset \
+  --run_ocr
+```
+
+The fixture is a user-owned XHS note. Keep the fixture images, `post.md`, and
+`ocr.md` in sync with `evals/xhs-capture-evals.json`, and use
+`prompts/evaluate-capture.md` for agent AI eval when working in the source repo.
+Packaged skill installs may omit eval fixtures and baselines. The live URL can
+still be used for end-to-end browser validation when XHS is reachable, but local
+fixture eval must not depend on network access.
 
 ## Required Constraints
 
@@ -64,6 +94,9 @@ validation succeeds.
 - Prefer semantic extraction from visible page state and loaded resources.
 - Download only target post assets: images plus optional post video.
 - Generate `post.md` for extracted text metadata.
+- Run local OCR for downloaded post images by default and save `ocr.md` next to
+  `post.md`. OCR failure for one image must not fail the whole post download;
+  preserve image files and report OCR warnings.
 - Export comments only when `include_comments=true`, and write `comments/comments.json` + `comments/comments.md`.
 - Download comment images into `comments/images/`.
 - Comment export is not guaranteed to be complete — if extraction yields zero comments on a post known to have them, retain all image/video downloads, set `comments_count=0`, and report the partial result without throwing.
@@ -130,18 +163,19 @@ A run is successful only when all conditions hold:
 2. Folder naming format is `<download_date>-<sanitized_title>-<note_id>` (title omitted when empty); `<download_date>` is today's date (YYYYMMDD), not the post's publish time.
 3. `post.md` is generated in the folder.
 4. Post image files are saved in the folder.
-5. Post video files are saved when the post contains video.
-6. If multiple video files are generated, they are merged into one and segment files are removed.
-7. When `include_comments=true`, comments are exported under `comments/` with `comments.json` and `comments.md`.
-8. When comment images exist, they are downloaded under `comments/images/`.
-9. URL output and logs use canonical `/explore/<note_id>` form without token query.
+5. `ocr.md` is generated in the folder for downloaded post images.
+6. Post video files are saved when the post contains video.
+7. If multiple video files are generated, they are merged into one and segment files are removed.
+8. When `include_comments=true`, comments are exported under `comments/` with `comments.json` and `comments.md`.
+9. When comment images exist, they are downloaded under `comments/images/`.
+10. URL output and logs use canonical `/explore/<note_id>` form without token query.
 
 Comment export failure behavior:
 - If extraction yields zero comments on a post known to have them: retain all downloaded files, return `comments_count=0`, do not throw. Partial coverage of hierarchy/reply linking is acceptable and expected.
 
 ## Operational Mode
 
-- Default mode: guided browser flow + semantic extraction + authenticated media download.
+- Default mode: guided browser flow + semantic extraction + authenticated media download + local OCR for post images.
 - Optional mode: add semantic comment extraction, comment image download, and write `comments/comments.json` + `comments/comments.md` when `include_comments=true`.
 - Startup guidance:
   - check if CDP is responding: `curl -s http://localhost:9223/json/version`

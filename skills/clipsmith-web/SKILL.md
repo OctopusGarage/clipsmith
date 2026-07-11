@@ -68,6 +68,13 @@ Known profiles:
   `https://www.anthropic.com/engineering/building-effective-agents`
 - `openai-core-dump-epidemiology` for
   `https://openai.com/index/core-dump-epidemiology-data-infrastructure-bug/`
+- `kingson-agent-runtime-skill-ai` for
+  `https://kingson4wu.github.io/zh/posts/20260328-agent-agent-runtime-skill-ai/`
+
+The `kingson-agent-runtime-skill-ai` profile is a user-owned fixture that guards
+Chinese article cleanup, heading preservation, table formatting, summary
+quality, and removal of blog chrome such as tags, share controls, and repeated
+table-of-contents text.
 
 For URLs without a matching deterministic profile, still read
 `prompts/evaluate-article.md` and perform the AI eval checklist against
@@ -77,9 +84,11 @@ fails, or AI eval finds missing article sections, unsupported metadata, or
 remaining page chrome.
 
 When maintaining this skill or adding another article-like provider, also follow
-the repository-level guardrail in `docs/web-capture-ai-eval.md`. The final
-response must include its required `Web capture AI eval: PASS|FAIL` report when
-that guardrail applies.
+the guardrail in `prompts/evaluate-article.md` and compare known profiles with
+the source-repo baselines in `evals/ai-evals/` when they are present. Packaged
+skill installs may omit eval fixtures and baselines. The final response must
+include its required `Web capture AI eval: PASS|FAIL` report when that guardrail
+applies.
 
 ## Bundle Contract
 

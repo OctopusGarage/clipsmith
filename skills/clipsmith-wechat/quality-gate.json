@@ -3,7 +3,8 @@
   "skill": "clipsmith-wechat",
   "capture_kind": "article",
   "raw_evidence": [
-    "article.mhtml when available",
+    "article.md",
+    "article.mhtml",
     "downloaded article images",
     "post.md",
     "summary.md"
@@ -12,15 +13,28 @@
     {
       "name": "bundle validation",
       "command": "uv run clipsmith validate-bundle <bundle_dir> --json"
+    },
+    {
+      "name": "provider regression script",
+      "command": "bash skills/clipsmith-wechat/tests/test_regression.sh"
+    },
+    {
+      "name": "known WeChat fixture eval",
+      "command": "node skills/clipsmith-wechat/scripts/eval.mjs --fixture wechat-wang-yangming-heart-study --profile wechat-wang-yangming-heart-study",
+      "profiles": [
+        "wechat-wang-yangming-heart-study"
+      ]
     }
   ],
   "agent_ai_eval": {
     "required": true,
-    "prompt": "docs/provider-quality-gate.md",
+    "prompt": "prompts/evaluate-capture.md",
+    "report": "evals/ai-evals/wechat-wang-yangming-heart-study.md",
     "reason": "WeChat pages are article-like captures and require model judgment for completeness and page chrome removal."
   },
   "ready_report": [
     "bundle validation result",
+    "deterministic fixture eval result",
     "article body completeness",
     "image and MHTML preservation status",
     "Provider quality gate: PASS|FAIL"

@@ -28,7 +28,7 @@ cd clipsmith
 ```
 
 Use this when developing the repo or when skill changes should be visible
-immediately.
+immediately. Source installs use symlinks by default.
 
 ## CLI Only
 
@@ -59,6 +59,10 @@ Source equivalents:
 ./install.sh --claude --no-cli
 ./install.sh --codex --no-cli
 ```
+
+Symlink installs are best for development. Copy installs create runtime
+snapshots and exclude source-only `evals/`, `tests/`, local dependency folders,
+and virtual environments. See [Skill Distribution](docs/skill-distribution.md).
 
 ## Doctor
 

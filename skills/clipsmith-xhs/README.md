@@ -5,6 +5,7 @@ This skill downloads Xiaohongshu post assets into a local folder with browser au
 Current output policy:
 - Save `post.md`
 - Save post images
+- Save `ocr.md` by running local OCR on post images by default
 - Save post video when available
 - Optionally export comments (`comments.json` + `comments.md`) with `--include_comments true` (**experimental, completeness/accuracy not guaranteed**)
 - Comment export is written under a dedicated `comments/` subdirectory
@@ -54,8 +55,9 @@ If `post_url` or `output_dir` is omitted, the script prompts interactively.
 9. Download images and videos.
 10. If multiple videos exist, merge to `video-merged.mp4` and clean temporary files.
 11. Write `post.md`.
-12. If `include_comments=true`, extract comments and write `comments/comments.json` + `comments/comments.md`.
-13. If comment images exist, download them into `comments/images/`.
+12. Run local OCR on post images and write `ocr.md`.
+13. If `include_comments=true`, extract comments and write `comments/comments.json` + `comments/comments.md`.
+14. If comment images exist, download them into `comments/images/`.
 
 ## 4) Technical Method
 
@@ -85,6 +87,7 @@ Example:
     002.webp
     video-merged.mp4   (if video exists)
     post.md
+    ocr.md
     comments/          (if --include_comments true)
       comments.json
       comments.md
@@ -121,7 +124,42 @@ This skill is robust for current pages, but not fully inference-driven. Main ris
 - Comment extraction is best-effort and may miss some top-level/reply comments, reply relations, images, or emoji assets.
 - UI/risk-control/lazy-load changes can still cause partial or mis-grouped comment output.
 
-## 7) Troubleshooting
+## 7) Evaluation Fixtures
+
+The repo includes a user-owned XHS fixture at:
+
+```text
+evals/fixtures/xhs-skill-long-term-asset/
+```
+
+It contains the source `post.md`, fixture images, expected `ocr.md`, and a
+baseline `evals/ai-evals/xhs-skill-long-term-asset.md`. Use it in the source
+repo to guard OCR and prompt changes without relying on live Xiaohongshu access:
+
+```bash
+node scripts/eval.mjs \
+  --fixture xhs-skill-long-term-asset \
+  --profile xhs-skill-long-term-asset
+
+node scripts/eval.mjs \
+  --fixture xhs-skill-long-term-asset \
+  --profile xhs-skill-long-term-asset \
+  --run_ocr
+```
+
+For live captures, validate the produced folder directly:
+
+```bash
+node scripts/eval.mjs \
+  --note_dir "/path/to/xhs/output-folder" \
+  --profile xhs-skill-long-term-asset
+```
+
+Run agent AI eval with `prompts/evaluate-capture.md` after deterministic eval
+passes, and compare the result to the AI eval baseline. Packaged skill installs
+may omit eval fixtures and baselines.
+
+## 8) Troubleshooting
 
 - If download returns empty media:
   - Confirm browser is logged in to Xiaohongshu.
@@ -131,9 +169,11 @@ This skill is robust for current pages, but not fully inference-driven. Main ris
 - If output contains stale files:
   - Re-run with `--overwrite true`.
 
-## 8) Notes for Maintenance
+## 9) Notes for Maintenance
 
 When page structure changes, prioritize:
 1. Fixing `__INITIAL_STATE__` extraction path
 2. Keeping DOM fallback minimal and defensive
-3. Preserving output contract (`post.md`, images, merged video, no manifest)
+3. Preserving output contract (`post.md`, `ocr.md`, images, merged video, no manifest)
+4. Running the committed fixture eval and fresh-OCR eval before reporting the
+   provider ready

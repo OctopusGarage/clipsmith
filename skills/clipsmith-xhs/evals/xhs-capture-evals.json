@@ -1,0 +1,35 @@
+{
+  "profiles": {
+    "xhs-skill-long-term-asset": {
+      "description": "User-owned XHS note used to guard image capture, default OCR, and normalized raw output quality.",
+      "source_url": "http://xhslink.com/o/3DeHS3JuRiS",
+      "expected_canonical_url": "https://www.xiaohongshu.com/explore/6a51e1580000000006035d09",
+      "expected_note_id": "6a51e1580000000006035d09",
+      "title_includes": "Skill 可能比 Agent 更像长期资产",
+      "fixture_dir": "evals/fixtures/xhs-skill-long-term-asset",
+      "min_image_count": 2,
+      "expected_ocr_count": 2,
+      "min_ocr_chars": 400,
+      "required_post_phrases": [
+        "Skill 可能比 Agent 更像长期资产",
+        "Source URL: https://www.xiaohongshu.com/explore/6a51e1580000000006035d09"
+      ],
+      "required_ocr_phrases": [
+        "Skill本质是在做知识外化",
+        "Agent 可以被替换",
+        "Skills 才是更核心的资产",
+        "如何保护和防"
+      ],
+      "forbidden_phrases": [
+        "页面不存在",
+        "登录后查看",
+        "验证码登录",
+        "扫码登录",
+        "账号异常",
+        "访问频繁",
+        "滑块验证"
+      ],
+      "forbid_summary": true
+    }
+  }
+}

@@ -1,0 +1,197 @@
+从自建 Agent 到 Agent Runtime + Skill：AI 系统架构的演进与收敛
+2026年3月28日
+AI
+LLM
+Agent
+Skill
+MCP
+一、问题本质：我们到底在构建什么？
+
+在“大模型 + AI Agent”的语境中，一个核心问题逐渐浮现：
+
+AI 系统中的“智能”究竟由谁承担？
+
+常见但不严谨的理解包括：“大模型是大脑”、“Agent 是类人智能体”、“有 LLM + Prompt 就足够”。这些说法在工程层面并不成立，需要还原为清晰的系统结构。
+
+二、基础认知：从模型到系统
+2.1 LLM：推理引擎，而非完整系统
+
+大模型的本质是：
+
+概率驱动的推理引擎（token → token）
+
+其能力边界非常明确：能做输入 → 输出生成；不能做状态管理、多步骤执行、主动调用外部系统。最基础的系统形态是 Prompt → LLM → Output，因此：
+
+LLM 本身不构成一个可执行系统
+
+2.2 Agent：任务编排与执行系统
+
+在工程语境中，更准确的定义是：
+
+Agent 是一个 Orchestrator（编排器）
+
+它的职责包括：理解任务、拆解步骤、选择工具（tool routing）、执行循环（execution loop）、管理状态（state）、根据结果持续调整策略。因此：
+
+Agent 不是“智能本体”，而是“控制系统”
+
+2.3 Tool 与 Skill：能力的结构化表达
+概念 含义
+Tool 单一能力（API / 脚本）
+Skill 能力封装（Prompt + Tool + 使用策略）
+
+更精确地表达为：
+
+Skill = Tool + 使用方式 + 业务语义
+
+Skill 的意义在于将能力结构化、将经验可执行化，使 Agent 可以直接调用，也是后续构建能力平台的基础单元。
+
+三、两种系统构建方式
+3.1 自建 Agent 架构
+
+典型技术：LangChain、LangGraph。
+
+User → Application → Custom Agent → LLM → Tools / APIs
+
+开发者需要自行实现工具选择、执行循环、状态管理、工作流控制和错误处理。特点是控制力强、灵活性高，但开发成本和复杂度也相应更高。
+
+3.2 Agent Runtime + Skill 架构
+User → Application → Agent Runtime（SDK / Platform） → Skills / Tools
+
+执行流程：理解任务 → 选择 Skill → 执行 → 分析结果 → 继续下一步。
+
+应用侧只需提供任务（prompt / 参数）和上下文，并接收结果；编排能力由 Runtime 接管。
+
+3.3 核心差异
+维度 自建 Agent Agent Runtime
+编排逻辑 自己实现 内置
+控制力 强 中 / 弱
+开发成本 高 低
+适用场景 复杂系统 标准流程
+3.4 什么时候需要自建 Agent？
+
+不需要自建的场景——流程线性、分支较少、以生成与调用为主，例如：
+
+数据收集 → 信息分析 → 结构化输出 → 报告生成 → PPT 生成
+
+结论：Agent Runtime + Skill 已足够。
+
+必须自建的场景——多分支复杂逻辑、强状态依赖、高一致性与可靠性要求，例如自动交易系统、风控系统、多 Agent 协作系统。
+
+结论：需要自建 Agent（如基于 LangGraph）。
+
+四、Skill Loader 与能力体系
+4.1 Skill Loader 的作用
+
+Skill Loader 是连接 Agent 与能力体系的桥梁，作用包括动态加载 Skill、解耦能力实现、支持热插拔。其演进路径为：
+
+自定义 Skill Loader → 兼容 MCP → 接入开放 Skill 平台
+
+4.2 MCP + Skill + CLI 的三层结构
+层级 作用
+MCP（协议层） 标准化调用方式
+Skill（能力层） 封装能力
+CLI / API（执行层） 执行入口
+
+本质目标：
+
+构建一个“可被 Agent 调用的能力系统”
+
+五、Coding Agent：从专用工具到通用 Agent Runtime
+
+从名称上看，“Coding Agent”似乎只是“用于写代码的 Agent”。但以 Claude Code 为代表的这类系统，其能力已明显外溢：除代码生成之外，还具备任务理解与拆解、多步骤执行、工具调用、结果迭代修正等能力——这些正是一个通用编排系统所需要的全部要素。
+
+当进一步结合以下要素后：
+
+MCP（标准化工具协议）
+Skill（能力封装）
+CLI / API（执行入口）
+
+其能力边界已经扩展为：
+
+通用任务执行系统（General-purpose Agent Runtime）
+
+这类通用 Agent Runtime 通常以两种方式对外提供：
+
+Agent SDK（可嵌入形态）：嵌入到业务系统中，应用侧控制调用方式，支持模型替换与 Skill 扩展。本质是开发者在使用 Agent 的同时仍然控制 Agent。
+
+Agent Platform（平台形态）：Agent 运行在平台侧，编排逻辑由平台负责，开发者主要提供任务与能力，模型与执行逻辑可能绑定。本质是开发者使用的是一个“托管的 Agent 系统”。
+
+两种形态的共同点是：将 Agent Runtime 标准化、产品化，并对外提供通用能力。区别仅在于控制权归属与组件可替换性。
+
+六、架构收敛趋势
+6.1 三层架构
+ ┌──────────────┐
+ │ Agent Runtime │（可替换）
+ └──────┬───────┘
+ ↓
+ ┌──────────────┐
+ │ Skill Layer │（核心资产）
+ └──────┬───────┘
+ ↓
+ ┌──────────────┐
+ │ Business Sys │
+ └──────────────┘
+
+6.2 Agent 正在基础设施化
+
+Agent Runtime 正在演变为标准化组件（SDK / 平台），开发者不再需要实现 Agent 内核，关注点转向 Skill 的构建与沉淀。
+
+6.3 Skill 成为核心资产
+
+Skill 的本质是可执行的知识（Executable Knowledge）：
+
+传统知识 Skill
+文档 可执行
+人脑经验 可复用
+零散信息 结构化能力
+七、落地路径
+
+核心思路只有一条主线：先解耦，后平台化。
+
+第一步：用 Skill Loader 解耦
+
+在 Agent SDK 尚未成熟稳定的当下，通过自定义 Skill Loader 将业务逻辑与 Agent 实现隔离。这不是长期方案，而是一种过渡手段——当 Agent SDK 成熟后，可以快速切换，不需要重写业务逻辑。
+
+第二步：构建开放平台
+
+当内部协议链路打通后，平台本身的能力扩展方式就变了：
+
+以前是“写代码实现新功能”，现在是“写 Skill + 配置即上线”。
+
+对内，业务团队直接组合 Skill 快速交付；对外，平台将 Skill 组合封装为能力接口，以 MCP 等协议提供给客户调用——客户看到的是“你能做什么”，而非内部如何实现。能力上线即交付，不再有漫长的开发转化链路。
+
+八、结论
+
+“Coding Agent”不再只是“写代码的 Agent”，而是演化为一种通用 Agent Runtime。
+
+AI 系统的核心正在从“构建 Agent”，转向“沉淀 Skill”。
+
+Agent 是可替换的执行层，Skill 是长期复利的核心资产，Skill 平台是最终的交付加速器。
+
+X
+目录
+一、问题本质：我们到底在构建什么？
+二、基础认知：从模型到系统
+2.1 LLM：推理引擎，而非完整系统
+2.2 Agent：任务编排与执行系统
+2.3 Tool 与 Skill：能力的结构化表达
+三、两种系统构建方式
+3.1 自建 Agent 架构
+3.2 Agent Runtime + Skill 架构
+3.3 核心差异
+3.4 什么时候需要自建 Agent？
+四、Skill Loader 与能力体系
+4.1 Skill Loader 的作用
+4.2 MCP + Skill + CLI 的三层结构
+五、Coding Agent：从专用工具到通用 Agent Runtime
+六、架构收敛趋势
+6.1 三层架构
+6.2 Agent 正在基础设施化
+6.3 Skill 成为核心资产
+七、落地路径
+八、结论
+Previous
+将执行路径固化为资产：从一个 Spotify Skill 看长期运行的 AI 自动化系统
+Next
+从 Skill 化到控制权：AI 系统中的能力分层与资产保护
+评论

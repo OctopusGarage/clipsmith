@@ -46,3 +46,7 @@ modifying a provider skill, adding a provider, or changing extraction prompts,
 run `uv run clipsmith quality-gates --json`, deterministic checks, and use
 Claude Code's own model judgment for the required agent AI eval before reporting
 success.
+
+Distribution hygiene is defined in `docs/skill-distribution.md`. Runtime skill
+installs must not include source-only evals, tests, local dependencies, or
+virtual environments.

@@ -11,15 +11,43 @@
     {
       "name": "bundle validation",
       "command": "uv run clipsmith validate-bundle <bundle_dir> --json"
+    },
+    {
+      "name": "provider regression script",
+      "command": "bash skills/clipsmith-x/tests/test_regression.sh"
+    },
+    {
+      "name": "known X fixture eval",
+      "command": "node skills/clipsmith-x/scripts/eval.mjs --fixture x-kingson-skill-runtime-text --profile x-kingson-skill-runtime-text",
+      "profiles": [
+        "x-kingson-skill-runtime-text"
+      ]
+    },
+    {
+      "name": "known X live media eval",
+      "command": "node skills/clipsmith-x/scripts/eval.mjs --post_dir <post_dir> --profile x-droidbuilds-single-image",
+      "profiles": [
+        "x-droidbuilds-single-image"
+      ]
+    },
+    {
+      "name": "known X live article eval",
+      "command": "node skills/clipsmith-x/scripts/eval.mjs --post_dir <post_dir> --profile x-geekcatx-chatgpt-codex-article",
+      "profiles": [
+        "x-geekcatx-chatgpt-codex-article"
+      ]
     }
   ],
   "agent_ai_eval": {
     "required": true,
-    "prompt": "docs/provider-quality-gate.md",
+    "prompt": "prompts/evaluate-capture.md",
+    "report": "evals/ai-evals/x-kingson-skill-runtime-text.md",
     "reason": "Social post captures require model judgment for text completeness, media consistency, and warning accuracy."
   },
   "ready_report": [
     "bundle validation result",
+    "deterministic fixture eval result",
+    "live profile eval result when applicable",
     "post text completeness",
     "media asset count and warnings",
     "Provider quality gate: PASS|FAIL"

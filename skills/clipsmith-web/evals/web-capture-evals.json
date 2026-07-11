@@ -47,6 +47,39 @@
         "Careers",
         "Privacy policy"
       ]
+    },
+    "kingson-agent-runtime-skill-ai": {
+      "description": "User-owned Chinese article used to guard generic web capture cleanup, heading preservation, tables, and summary quality.",
+      "source_url": "https://kingson4wu.github.io/zh/posts/20260328-agent-agent-runtime-skill-ai/",
+      "expected_status": "complete",
+      "title_includes": "从自建 Agent 到 Agent Runtime + Skill",
+      "min_post_chars": 3300,
+      "min_headings": 14,
+      "max_line_chars": 360,
+      "required_phrases": [
+        "一、问题本质：我们到底在构建什么？",
+        "2.1 LLM：推理引擎，而非完整系统",
+        "Skill = Tool + 使用方式 + 业务语义",
+        "User → Application → Agent Runtime（SDK / Platform） → Skills / Tools",
+        "MCP + Skill + CLI 的三层结构",
+        "通用任务执行系统（General-purpose Agent Runtime）",
+        "Skill 的本质是可执行的知识",
+        "Agent 是可替换的执行层，Skill 是长期复利的核心资产"
+      ],
+      "summary_required_phrases": [
+        "Agent Runtime + Skill",
+        "LLM 是推理引擎",
+        "Skill",
+        "可执行、可复用、结构化"
+      ],
+      "forbidden_phrases": [
+        "从自建 Agent 到 Agent Runtime + Skill：AI 系统架构的演进与收敛 | 拉巴力的纸皮箱",
+        "2026年3月28日\nAI\nLLM\nAgent\nSkill\nMCP",
+        "\nX\n目录",
+        "相关文章",
+        "上一篇",
+        "下一篇"
+      ]
     }
   }
 }

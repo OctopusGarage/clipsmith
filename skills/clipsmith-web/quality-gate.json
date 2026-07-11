@@ -13,18 +13,23 @@
       "command": "uv run clipsmith validate-bundle <bundle_dir> --json"
     },
     {
+      "name": "provider regression script",
+      "command": "bash skills/clipsmith-web/tests/test_regression.sh"
+    },
+    {
       "name": "known profile eval",
-      "command": "node scripts/eval.mjs --bundle_dir <bundle_dir> --profile <profile>",
+      "command": "node skills/clipsmith-web/scripts/eval.mjs --bundle_dir <bundle_dir> --profile <profile>",
       "profiles": [
         "anthropic-building-effective-agents",
-        "openai-core-dump-epidemiology"
+        "openai-core-dump-epidemiology",
+        "kingson-agent-runtime-skill-ai"
       ]
     }
   ],
   "agent_ai_eval": {
     "required": true,
     "prompt": "prompts/evaluate-article.md",
-    "report": "docs/web-capture-ai-eval.md"
+    "report": "evals/ai-evals/kingson-agent-runtime-skill-ai.md"
   },
   "ready_report": [
     "bundle validation result",

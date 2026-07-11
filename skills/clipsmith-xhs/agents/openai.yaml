@@ -1,5 +1,5 @@
 version: 1
 interface:
   display_name: Clipsmith Xiaohongshu Capture
-  description: Export XiaoHongShu post text through the existing runner, then normalize post.md, summary.md, and any OCR transcript into a Clipsmith bundle.
-  default_prompt: Use this skill for Xiaohongshu or XHS post URLs. Invoke the existing scripts/run.ts runner, never replace it with ad hoc automation, preserve URL query tokens for navigation, reuse the authenticated Chrome CDP session, and normalize output into an xhs Clipsmith bundle containing capture.json, post.md, summary.md, and ocr.md when OCR text was produced before validation. Do not discard OCR text after summarizing it; declare ocr.md in capture.json.content_files with kind ocr-text.
+  description: Export XiaoHongShu post text, media, and default image OCR through the existing runner.
+  default_prompt: Use this skill for Xiaohongshu or XHS post URLs. Invoke the existing scripts/run.ts runner, never replace it with ad hoc automation, preserve URL query tokens for navigation, reuse the authenticated Chrome CDP session, and verify the raw output folder contains post.md, downloaded media, and ocr.md for post images. The raw runner does not generate summary.md; create summary.md only if a later Clipsmith bundle normalization step requires it. Before changing OCR, prompts, or extraction behavior, run the committed fixture eval with scripts/eval.mjs and use prompts/evaluate-capture.md for AI eval.

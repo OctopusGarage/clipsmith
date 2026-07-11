@@ -35,6 +35,26 @@ The command validates every `quality-gate.json`, checks referenced agent eval
 prompt/report files, validates known web eval profile contracts, and emits a
 typed plan that agents can use before running provider-specific checks.
 
+To materialize the deterministic checks for one provider, pass `--skill` and
+the paths needed by that provider:
+
+```bash
+uv run clipsmith quality-gates \
+  --skill clipsmith-web \
+  --bundle-dir "<bundle_dir>" \
+  --profile "<profile>" \
+  --json
+```
+
+Add `--run` only when the materialized commands are ready to execute. Commands
+with unresolved placeholders such as `<bundle_dir>`, `<post_dir>`,
+`<article_dir>`, `<note_dir>`, or `<profile>` are reported as not runnable
+instead of being guessed.
+
+Some referenced eval reports live under provider `evals/` directories. Those are
+source-repo maintenance assets and may be absent from packaged skill installs.
+They are intentionally excluded from runtime skill distribution.
+
 Deterministic checks are stable and suitable for local health checks:
 
 - bundle schema validation

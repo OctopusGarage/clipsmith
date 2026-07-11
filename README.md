@@ -5,14 +5,17 @@
 [![Python >=3.12](https://img.shields.io/badge/python-%3E%3D3.12-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![uv](https://img.shields.io/badge/managed%20with-uv-654FF0)](https://github.com/astral-sh/uv)
-[![Ruff](https://img.shields.io/badge/code%20style-ruff-261230)](https://docs.astral.sh/ruff/)
 
 Clipsmith captures posts, articles, local media, and OCR output into portable
 `clipsmith.capture_bundle.v1` directories.
 
-- CLI: provider matching, jobs, validation, sinks, install, doctor.
-- Skills: platform capture with browser sessions, proxies, CDP, and login state.
-- Consumers: read validated bundles and decide how to review, archive, or index.
+It is split into:
+
+- a Python CLI for provider routing, bundle validation, jobs, sinks, install,
+  and doctor checks
+- agent skills for platform capture in Codex and Claude Code
+- provider quality gates that combine deterministic checks with agent-run AI
+  eval where extraction quality needs model judgment
 
 ## Install
 
@@ -24,7 +27,7 @@ clipsmith doctor
 
 Restart Codex or Claude Code after installing skills.
 
-Source checkout:
+For a source checkout:
 
 ```bash
 git clone https://github.com/OctopusGarage/clipsmith.git
@@ -32,99 +35,55 @@ cd clipsmith
 ./install.sh --all
 ```
 
-More install options: [INSTALL.md](INSTALL.md).
+More options: [INSTALL.md](INSTALL.md).
 
-## Capture With An Agent
+## Use
 
-After installing skills, use the same prompt in Codex or Claude Code:
+After installing skills, ask an agent:
 
 ```text
 Use clipsmith-capture to capture https://example.com/post
 ```
 
-To request a sink, say it explicitly:
+To sink a validated bundle to a workspace inbox, say so explicitly:
 
 ```text
 Use clipsmith-capture to capture https://example.com/post and sink it to /path/to/inbox-workspace
 ```
 
-Claude Code also has repo-local shortcuts:
-
-```text
-/capture https://example.com/post
-/health
-```
-
-## CLI
-
-Use the CLI for deterministic protocol work:
+Useful CLI commands:
 
 ```bash
 clipsmith providers --json
 clipsmith quality-gates --json
-clipsmith capture start "https://example.com/post" --state-dir /tmp/clipsmith-state
 clipsmith validate-bundle /path/to/bundle --json
-clipsmith capture finalize "<job_id_or_job_path>" /path/to/bundle --state-dir /tmp/clipsmith-state
+clipsmith export okf /path/to/bundle /path/to/okf-workspace --json
 clipsmith sink directory /path/to/bundle ~/Downloads/clips --json
 clipsmith sink inbox /path/to/bundle /path/to/inbox-workspace --json
 ```
 
 In a source checkout, use `uv run clipsmith ...`.
 
-## Workflow
-
-1. `capture start` selects a provider and creates a job.
-2. The provider skill captures and normalizes output into a bundle.
-3. `validate-bundle` checks the bundle contract.
-4. Provider quality gates check deterministic rules and required agent AI eval.
-5. `capture finalize` marks the job done.
-6. A sink copies the bundle only when requested.
-
-Current provider execution mode is `skill`.
-
-## Output
-
-Typical bundle:
-
-```text
-20260707-example-xhs/
-  capture.json
-  post.md
-  summary.md
-  ocr.md      # present when OCR text was produced
-```
-
-When OCR is performed during capture, the raw OCR transcript must be preserved
-as `ocr.md` or `ocr.txt` and declared in `capture.json.content_files` with
-`kind: "ocr-text"`. `summary.md` may summarize OCR output, but it must not be
-the only place where OCR text is stored. For image OCR captures, the original
-OCR picture may also be preserved as a separate `ocr-image` asset.
-
-Sinks:
-
-- `directory`: `<output_dir>/<bundle-id>/`
-- `inbox`: `<workspace>/inbox/<platform>/<bundle-id>/`
-
-## Development
+## Develop
 
 ```bash
-uv run clipsmith quality-gates --json
 uv run pytest -q
 ./script/check-health.sh
 ```
 
-Provider skills must declare `quality-gate.json`. Article-like captures also use
-agent-run AI evals to guard extraction quality. See
-[Provider Quality Gate](docs/provider-quality-gate.md) and
-[Web Capture AI Eval](docs/web-capture-ai-eval.md).
+`check-health` is the project gate: it runs tests, validates skill contracts,
+checks quality gate declarations, and verifies packaged skills do not include
+development-only assets.
 
 ## Docs
 
-- [Project Page](https://octopusgarage.github.io/clipsmith/)
 - [Install](INSTALL.md)
-- [Release](RELEASE.md)
 - [Development](docs/DEVELOP.md)
 - [Capture Bundle Contract](docs/capture-bundle-contract.md)
 - [Provider Quality Gate](docs/provider-quality-gate.md)
 - [Web Capture AI Eval](docs/web-capture-ai-eval.md)
+- [OKF Export](docs/okf-export.md)
+- [Skill Distribution](docs/skill-distribution.md)
 - [Inbox Integration](docs/inbox-integration.md)
+- [Release](RELEASE.md)
+- [Project Page](https://octopusgarage.github.io/clipsmith/)

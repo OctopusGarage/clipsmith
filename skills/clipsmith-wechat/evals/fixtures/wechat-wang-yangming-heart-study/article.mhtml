@@ -1,0 +1,27 @@
+From: <Saved by Clipsmith fixture>
+Snapshot-Content-Location: https://mp.weixin.qq.com/s/cwvelGaEzQKHfultsDjDUg
+Subject: Sanitized WeChat fixture
+MIME-Version: 1.0
+Content-Type: multipart/related;
+	type="text/html";
+	boundary="----clipsmith-fixture"
+
+------clipsmith-fixture
+Content-Type: text/html; charset="utf-8"
+Content-Location: https://mp.weixin.qq.com/s/cwvelGaEzQKHfultsDjDUg
+
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Sanitized WeChat fixture</title>
+  </head>
+  <body>
+    <p>
+      This sanitized placeholder proves article.mhtml was preserved for fixture
+      evaluation. The full browser snapshot is intentionally not committed
+      because MHTML can contain runtime tokens.
+    </p>
+  </body>
+</html>
+------clipsmith-fixture--

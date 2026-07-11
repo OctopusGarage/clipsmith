@@ -35,6 +35,26 @@ EOF
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
+prune_skill_copy() {
+  dest="$1"
+  rm -rf \
+    "$dest/.DS_Store" \
+    "$dest/.mypy_cache" \
+    "$dest/.pytest_cache" \
+    "$dest/.ruff_cache" \
+    "$dest/.venv" \
+    "$dest/__pycache__" \
+    "$dest/coverage" \
+    "$dest/coverage.xml" \
+    "$dest/evals" \
+    "$dest/htmlcov" \
+    "$dest/node_modules" \
+    "$dest/playwright-report" \
+    "$dest/test-results" \
+    "$dest/tests" \
+    "$dest/venv"
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
     --claude) WANT_CLAUDE=1; WANT_CODEX=""; explicit_target=1 ;;
@@ -149,6 +169,7 @@ process_target() {
 
     if [ "$MODE" = "copy" ]; then
       cp -R "$src" "$dest"
+      prune_skill_copy "$dest"
       echo "[$label] copied: $name"
     else
       ln -s "$src" "$dest"

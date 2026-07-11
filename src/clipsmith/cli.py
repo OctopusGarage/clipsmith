@@ -16,8 +16,16 @@ from clipsmith.installation import (
     install_skills,
     print_doctor,
 )
+from clipsmith.normalization import (
+    RawCaptureNormalizationRequest,
+    RawCaptureNormalizer,
+)
+from clipsmith.okf import OkfExporter
 from clipsmith.providers import ProviderInfo, ProviderRegistry
-from clipsmith.quality_gate import validate_project_quality_gate_result
+from clipsmith.quality_gate import (
+    QualityGateRunner,
+    validate_project_quality_gate_result,
+)
 from clipsmith.sinks import DirectorySink, InboxSink
 
 
@@ -81,6 +89,49 @@ def build_parser() -> argparse.ArgumentParser:
         "--json", action="store_true", help="Print sink result as JSON"
     )
 
+    export_parser = subparsers.add_parser(
+        "export", help="Export a capture bundle to another format"
+    )
+    export_subparsers = export_parser.add_subparsers(dest="export_command")
+
+    okf_parser = export_subparsers.add_parser(
+        "okf", help="Write a bundle as an OKF concept markdown file"
+    )
+    okf_parser.add_argument("bundle_path")
+    okf_parser.add_argument("output_dir")
+    okf_parser.add_argument(
+        "--json", action="store_true", help="Print export result as JSON"
+    )
+
+    normalize_parser = subparsers.add_parser(
+        "normalize", help="Normalize provider raw output into a capture bundle"
+    )
+    normalize_subparsers = normalize_parser.add_subparsers(dest="normalize_command")
+
+    raw_parser = normalize_subparsers.add_parser(
+        "raw", help="Convert a raw provider output directory into a bundle"
+    )
+    raw_parser.add_argument("provider")
+    raw_parser.add_argument("raw_dir")
+    raw_parser.add_argument("bundle_dir")
+    raw_parser.add_argument("--source-url", required=True)
+    raw_parser.add_argument("--canonical-url", default="")
+    raw_parser.add_argument("--title", default="")
+    raw_parser.add_argument("--author", default="")
+    raw_parser.add_argument("--published-at", default="")
+    raw_parser.add_argument("--captured-at", default="")
+    raw_parser.add_argument(
+        "--status",
+        default="complete",
+        choices=("complete", "partial", "failed", "needs_manual_action"),
+    )
+    raw_parser.add_argument(
+        "--overwrite", action="store_true", help="Replace an existing bundle directory"
+    )
+    raw_parser.add_argument(
+        "--json", action="store_true", help="Print normalization result as JSON"
+    )
+
     install_parser = subparsers.add_parser(
         "install", help="Install Clipsmith skills into local agent targets"
     )
@@ -107,6 +158,16 @@ def build_parser() -> argparse.ArgumentParser:
     quality_parser.add_argument(
         "--root", default=".", help="Project root containing the skills directory"
     )
+    quality_parser.add_argument("--skill", help="Materialize checks for one skill")
+    quality_parser.add_argument("--profile", default="", help="Eval profile to select")
+    quality_parser.add_argument("--bundle-dir", default="")
+    quality_parser.add_argument("--raw-dir", default="")
+    quality_parser.add_argument("--post-dir", default="")
+    quality_parser.add_argument("--article-dir", default="")
+    quality_parser.add_argument("--note-dir", default="")
+    quality_parser.add_argument(
+        "--run", action="store_true", help="Execute runnable deterministic checks"
+    )
     return parser
 
 
@@ -125,6 +186,10 @@ def main(argv: list[str] | None = None) -> int:
             return _handle_validate_bundle(args)
         if args.command == "sink":
             return _handle_sink(args)
+        if args.command == "export":
+            return _handle_export(args)
+        if args.command == "normalize":
+            return _handle_normalize(args)
         if args.command == "install":
             return _handle_install(args)
         if args.command == "uninstall":
@@ -208,6 +273,49 @@ def _handle_sink(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_export(args: argparse.Namespace) -> int:
+    if args.export_command == "okf":
+        result = OkfExporter(args.output_dir).write(args.bundle_path)
+    else:
+        print("clipsmith export requires a subcommand", file=sys.stderr)
+        return 2
+
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False))
+    else:
+        print(f"{result['status']}: {result['path']}")
+    return 0
+
+
+def _handle_normalize(args: argparse.Namespace) -> int:
+    if args.normalize_command == "raw":
+        result = RawCaptureNormalizer().normalize(
+            RawCaptureNormalizationRequest(
+                provider=args.provider,
+                raw_dir=args.raw_dir,
+                bundle_dir=args.bundle_dir,
+                source_url=args.source_url,
+                canonical_url=args.canonical_url,
+                title=args.title,
+                author=args.author,
+                published_at=args.published_at,
+                captured_at=args.captured_at,
+                status=args.status,
+                overwrite=args.overwrite,
+            )
+        )
+    else:
+        print("clipsmith normalize requires a subcommand", file=sys.stderr)
+        return 2
+
+    payload = result.to_json_dict()
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False))
+    else:
+        print(f"{payload['status']}: {payload['path']}")
+    return 0
+
+
 def _handle_install(args: argparse.Namespace) -> int:
     for line in install_skills(_install_options(args, action="install")):
         print(line)
@@ -231,6 +339,35 @@ def _handle_doctor(args: argparse.Namespace) -> int:
 
 
 def _handle_quality_gates(args: argparse.Namespace) -> int:
+    if args.skill:
+        substitutions = {
+            "bundle_dir": args.bundle_dir,
+            "raw_dir": args.raw_dir,
+            "post_dir": args.post_dir,
+            "article_dir": args.article_dir,
+            "note_dir": args.note_dir,
+        }
+        runner = QualityGateRunner(args.root)
+        result = (
+            runner.run(args.skill, profile=args.profile, substitutions=substitutions)
+            if args.run
+            else runner.plan(
+                args.skill, profile=args.profile, substitutions=substitutions
+            )
+        )
+        payload = result.to_json_dict()
+        if args.json:
+            print(json.dumps(payload, ensure_ascii=False))
+        else:
+            for command in result.commands:
+                status = "runnable" if command.runnable else "missing placeholders"
+                if command.exit_code is not None:
+                    status = f"exit {command.exit_code}"
+                print(f"{command.name}\t{status}\t{command.command}")
+        if args.run:
+            return 0 if result.passed else 1
+        return 0
+
     result = validate_project_quality_gate_result(args.root)
     if args.json:
         print(json.dumps(result.to_json_dict(), ensure_ascii=False))

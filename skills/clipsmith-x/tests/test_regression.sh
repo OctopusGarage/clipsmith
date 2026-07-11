@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
+EVAL_PROFILE="x-kingson-skill-runtime-text"
 
 echo "=== x-download-post-assets regression test ==="
 
@@ -14,7 +15,7 @@ else
 fi
 
 # 2. Required files exist (worktree subset)
-for f in scripts/run.ts scripts/executor.ts scripts/core.ts package.json references/plan.md; do
+for f in scripts/run.ts scripts/executor.ts scripts/core.ts scripts/eval.mjs package.json references/plan.md prompts/evaluate-capture.md evals/x-capture-evals.json "evals/fixtures/$EVAL_PROFILE/post.md" "evals/ai-evals/$EVAL_PROFILE.md"; do
   if [ -f "$f" ]; then
     echo "[pass] $f exists"
   else
@@ -22,6 +23,33 @@ for f in scripts/run.ts scripts/executor.ts scripts/core.ts package.json referen
     exit 1
   fi
 done
+
+if ! grep -q "$EVAL_PROFILE" evals/x-capture-evals.json; then
+  echo "[fail] $EVAL_PROFILE missing from evals/x-capture-evals.json"
+  exit 1
+fi
+if ! grep -q "x-droidbuilds-single-image" evals/x-capture-evals.json; then
+  echo "[fail] media live profile missing from evals/x-capture-evals.json"
+  exit 1
+fi
+if ! grep -q "x-geekcatx-chatgpt-codex-article" evals/x-capture-evals.json; then
+  echo "[fail] article live profile missing from evals/x-capture-evals.json"
+  exit 1
+fi
+if ! grep -q "Do not pass" prompts/evaluate-capture.md; then
+  echo "[fail] AI eval prompt does not contain pass/fail rules"
+  exit 1
+fi
+if ! grep -q "keep-process-alive" scripts/run.ts; then
+  echo "[fail] run.ts missing --keep-process-alive option"
+  exit 1
+fi
+if ! grep -q "browser.close" scripts/executor.ts; then
+  echo "[fail] executor.ts missing CDP disconnect cleanup"
+  exit 1
+fi
+node scripts/eval.mjs --help >/dev/null
+node scripts/eval.mjs --fixture "$EVAL_PROFILE" --profile "$EVAL_PROFILE" >/dev/null
 
 # 3. tsx availability
 echo "[info] Checking tsx availability..."

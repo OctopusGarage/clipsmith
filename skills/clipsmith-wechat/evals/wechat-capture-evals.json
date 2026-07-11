@@ -1,0 +1,38 @@
+{
+  "profiles": {
+    "wechat-wang-yangming-heart-study": {
+      "description": "User-owned WeChat article used to guard public-account article extraction, image preservation, MHTML capture, and AI-normalized post.md quality.",
+      "source_url": "https://mp.weixin.qq.com/s/cwvelGaEzQKHfultsDjDUg",
+      "expected_article_id": "cwvelGaEzQKHfultsDjDUg",
+      "title_includes": "王阳明心学",
+      "account_includes": "码农躺平日记",
+      "fixture_dir": "evals/fixtures/wechat-wang-yangming-heart-study",
+      "min_image_count": 1,
+      "fixture_min_image_count": 1,
+      "min_article_chars": 1400,
+      "fixture_min_article_chars": 1400,
+      "require_mhtml": true,
+      "fixture_require_mhtml": true,
+      "require_normalized_post": true,
+      "min_normalized_headings": 8,
+      "fixture_min_normalized_headings": 8,
+      "max_normalized_line_chars": 320,
+      "required_phrases": [
+        "心即理",
+        "知行合一",
+        "致良知",
+        "心外无物",
+        "Know thyself",
+        "Why Always Me?"
+      ],
+      "forbidden_phrases": [
+        "登录后查看",
+        "验证码登录",
+        "扫码登录",
+        "页面不存在",
+        "该内容已被发布者删除",
+        "环境异常"
+      ]
+    }
+  }
+}

@@ -28,9 +28,83 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/clipsmith"]
+exclude = [
+    "/**/__pycache__",
+    "/**/*.pyc",
+    "/skills/**/.venv/**",
+    "/skills/**/evals/**",
+    "/skills/**/node_modules/**",
+    "/skills/**/playwright-report/**",
+    "/skills/**/scripts/eval.mjs",
+    "/skills/**/test-results/**",
+    "/skills/**/tests/**",
+]
 
 [tool.hatch.build.targets.wheel.force-include]
-"skills" = "clipsmith/skills"
+"skills/clipsmith-capture/SKILL.md" = "clipsmith/skills/clipsmith-capture/SKILL.md"
+"skills/clipsmith-capture/agents" = "clipsmith/skills/clipsmith-capture/agents"
+"skills/clipsmith-capture/quality-gate.json" = "clipsmith/skills/clipsmith-capture/quality-gate.json"
+
+"skills/clipsmith-ocr/README.md" = "clipsmith/skills/clipsmith-ocr/README.md"
+"skills/clipsmith-ocr/SKILL.md" = "clipsmith/skills/clipsmith-ocr/SKILL.md"
+"skills/clipsmith-ocr/agents" = "clipsmith/skills/clipsmith-ocr/agents"
+"skills/clipsmith-ocr/pyproject.toml" = "clipsmith/skills/clipsmith-ocr/pyproject.toml"
+"skills/clipsmith-ocr/quality-gate.json" = "clipsmith/skills/clipsmith-ocr/quality-gate.json"
+"skills/clipsmith-ocr/references" = "clipsmith/skills/clipsmith-ocr/references"
+"skills/clipsmith-ocr/scripts" = "clipsmith/skills/clipsmith-ocr/scripts"
+"skills/clipsmith-ocr/skill.yaml" = "clipsmith/skills/clipsmith-ocr/skill.yaml"
+"skills/clipsmith-ocr/uv.lock" = "clipsmith/skills/clipsmith-ocr/uv.lock"
+
+"skills/clipsmith-web/SKILL.md" = "clipsmith/skills/clipsmith-web/SKILL.md"
+"skills/clipsmith-web/agents" = "clipsmith/skills/clipsmith-web/agents"
+"skills/clipsmith-web/package-lock.json" = "clipsmith/skills/clipsmith-web/package-lock.json"
+"skills/clipsmith-web/package.json" = "clipsmith/skills/clipsmith-web/package.json"
+"skills/clipsmith-web/prompts" = "clipsmith/skills/clipsmith-web/prompts"
+"skills/clipsmith-web/quality-gate.json" = "clipsmith/skills/clipsmith-web/quality-gate.json"
+"skills/clipsmith-web/scripts" = "clipsmith/skills/clipsmith-web/scripts"
+"skills/clipsmith-web/skill.yaml" = "clipsmith/skills/clipsmith-web/skill.yaml"
+
+"skills/clipsmith-wechat/SKILL.md" = "clipsmith/skills/clipsmith-wechat/SKILL.md"
+"skills/clipsmith-wechat/agents" = "clipsmith/skills/clipsmith-wechat/agents"
+"skills/clipsmith-wechat/package-lock.json" = "clipsmith/skills/clipsmith-wechat/package-lock.json"
+"skills/clipsmith-wechat/package.json" = "clipsmith/skills/clipsmith-wechat/package.json"
+"skills/clipsmith-wechat/pnpm-lock.yaml" = "clipsmith/skills/clipsmith-wechat/pnpm-lock.yaml"
+"skills/clipsmith-wechat/prompts" = "clipsmith/skills/clipsmith-wechat/prompts"
+"skills/clipsmith-wechat/quality-gate.json" = "clipsmith/skills/clipsmith-wechat/quality-gate.json"
+"skills/clipsmith-wechat/references" = "clipsmith/skills/clipsmith-wechat/references"
+"skills/clipsmith-wechat/scripts" = "clipsmith/skills/clipsmith-wechat/scripts"
+"skills/clipsmith-wechat/skill.yaml" = "clipsmith/skills/clipsmith-wechat/skill.yaml"
+
+"skills/clipsmith-x/.npmrc" = "clipsmith/skills/clipsmith-x/.npmrc"
+"skills/clipsmith-x/README.md" = "clipsmith/skills/clipsmith-x/README.md"
+"skills/clipsmith-x/README.zh-CN.md" = "clipsmith/skills/clipsmith-x/README.zh-CN.md"
+"skills/clipsmith-x/SKILL.md" = "clipsmith/skills/clipsmith-x/SKILL.md"
+"skills/clipsmith-x/agents" = "clipsmith/skills/clipsmith-x/agents"
+"skills/clipsmith-x/package-lock.json" = "clipsmith/skills/clipsmith-x/package-lock.json"
+"skills/clipsmith-x/package.json" = "clipsmith/skills/clipsmith-x/package.json"
+"skills/clipsmith-x/pnpm-lock.yaml" = "clipsmith/skills/clipsmith-x/pnpm-lock.yaml"
+"skills/clipsmith-x/prompts" = "clipsmith/skills/clipsmith-x/prompts"
+"skills/clipsmith-x/quality-gate.json" = "clipsmith/skills/clipsmith-x/quality-gate.json"
+"skills/clipsmith-x/references" = "clipsmith/skills/clipsmith-x/references"
+"skills/clipsmith-x/scripts" = "clipsmith/skills/clipsmith-x/scripts"
+"skills/clipsmith-x/skill.yaml" = "clipsmith/skills/clipsmith-x/skill.yaml"
+"skills/clipsmith-x/tsconfig.json" = "clipsmith/skills/clipsmith-x/tsconfig.json"
+
+"skills/clipsmith-xhs/.npmrc" = "clipsmith/skills/clipsmith-xhs/.npmrc"
+"skills/clipsmith-xhs/README.md" = "clipsmith/skills/clipsmith-xhs/README.md"
+"skills/clipsmith-xhs/README.zh-CN.md" = "clipsmith/skills/clipsmith-xhs/README.zh-CN.md"
+"skills/clipsmith-xhs/SKILL.md" = "clipsmith/skills/clipsmith-xhs/SKILL.md"
+"skills/clipsmith-xhs/agents" = "clipsmith/skills/clipsmith-xhs/agents"
+"skills/clipsmith-xhs/package-lock.json" = "clipsmith/skills/clipsmith-xhs/package-lock.json"
+"skills/clipsmith-xhs/package.json" = "clipsmith/skills/clipsmith-xhs/package.json"
+"skills/clipsmith-xhs/pnpm-lock.yaml" = "clipsmith/skills/clipsmith-xhs/pnpm-lock.yaml"
+"skills/clipsmith-xhs/prompts" = "clipsmith/skills/clipsmith-xhs/prompts"
+"skills/clipsmith-xhs/quality-gate.json" = "clipsmith/skills/clipsmith-xhs/quality-gate.json"
+"skills/clipsmith-xhs/references" = "clipsmith/skills/clipsmith-xhs/references"
+"skills/clipsmith-xhs/scripts" = "clipsmith/skills/clipsmith-xhs/scripts"
+"skills/clipsmith-xhs/skill.yaml" = "clipsmith/skills/clipsmith-xhs/skill.yaml"
+
+"script/eval-harness.mjs" = "clipsmith/script/eval-harness.mjs"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

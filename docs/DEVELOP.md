@@ -20,6 +20,16 @@ script/              maintenance scripts
 .github/workflows/   CI
 ```
 
+## Source Vs Installed Skills
+
+The source tree keeps provider eval fixtures, regression scripts, and AI eval
+baselines next to the provider skills they protect. Those files are maintenance
+assets, not required runtime assets.
+
+Packaged and copy-installed skills exclude `evals/`, `tests/`, `node_modules/`,
+`.venv/`, and tool output directories. See
+[Skill Distribution](skill-distribution.md).
+
 ## Capture Loop
 
 ```bash
@@ -34,6 +44,12 @@ Optional sinks:
 ```bash
 uv run clipsmith sink directory "<bundle_dir>" "<output_dir>" --json
 uv run clipsmith sink inbox "<bundle_dir>" "<inbox_workspace>" --json
+```
+
+Optional knowledge-format export:
+
+```bash
+uv run clipsmith export okf "<bundle_dir>" "<okf_workspace>" --json
 ```
 
 ## Provider Execution
@@ -66,12 +82,13 @@ snippets.
 
 `./script/check-health.sh` verifies tests, provider JSON, fixture validation,
 skill metadata, provider quality gate plans, shell syntax, relative bundle
-paths, and basic secret hygiene.
+paths, wheel package hygiene, and basic secret hygiene.
 
 Provider quality rules live in:
 
 - `docs/provider-quality-gate.md`
 - `docs/web-capture-ai-eval.md`
+- `docs/okf-export.md`
 
 When changing a provider, prompt, extraction script, raw evidence policy, or eval
 profile, run the relevant deterministic checks and perform the required agent AI

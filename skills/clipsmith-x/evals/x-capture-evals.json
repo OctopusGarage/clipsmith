@@ -1,0 +1,82 @@
+{
+  "profiles": {
+    "x-kingson-skill-runtime-text": {
+      "description": "User-owned text-only X post used to guard canonical post text and metadata extraction.",
+      "source_url": "https://x.com/kingson4wu/status/2038257423081935288",
+      "expected_post_id": "2038257423081935288",
+      "author_handle": "kingson4wu",
+      "expected_type": "textOnly",
+      "fixture_dir": "evals/fixtures/x-kingson-skill-runtime-text",
+      "min_post_chars": 250,
+      "min_image_count": 0,
+      "min_video_count": 0,
+      "require_mhtml": false,
+      "required_phrases": [
+        "AI vendors are converging",
+        "SDK owns the Runtime",
+        "developers own the Skills",
+        "Agent Runtimes are becoming commodity infrastructure"
+      ],
+      "forbidden_phrases": [
+        "Log in",
+        "Sign up",
+        "Something went wrong",
+        "Retry",
+        "Rate limit",
+        "captcha"
+      ]
+    },
+    "x-droidbuilds-single-image": {
+      "description": "External X post with one downloaded image, used as a live profile for media capture.",
+      "source_url": "https://x.com/droidbuilds/status/2075599347396554883",
+      "expected_post_id": "2075599347396554883",
+      "author_handle": "droidbuilds",
+      "expected_type": "withMedia",
+      "min_post_chars": 250,
+      "min_image_count": 1,
+      "min_video_count": 0,
+      "require_mhtml": false,
+      "required_phrases": [
+        "Steve Jobs was 21",
+        "Bill Gates was 20",
+        "Mark Zuckerberg was 19",
+        "It's too late"
+      ],
+      "forbidden_phrases": [
+        "Log in",
+        "Sign up",
+        "Something went wrong",
+        "Retry",
+        "Rate limit",
+        "captcha"
+      ]
+    },
+    "x-geekcatx-chatgpt-codex-article": {
+      "description": "External X article post used as a live profile for article MHTML capture and image extraction.",
+      "source_url": "https://x.com/geekcatx/status/2075523729493549093",
+      "expected_post_id": "2075523729493549093",
+      "author_handle": "geekcatx",
+      "expected_type": "article",
+      "min_post_chars": 4500,
+      "min_image_count": 2,
+      "min_video_count": 0,
+      "require_mhtml": true,
+      "required_phrases": [
+        "ChatGPT 吃掉 Codex",
+        "Agent 操作系统",
+        "ChatGPT Work",
+        "Codex",
+        "GPT‑5.6",
+        "Quick chat"
+      ],
+      "forbidden_phrases": [
+        "Log in",
+        "Sign up",
+        "Something went wrong",
+        "Retry",
+        "Rate limit",
+        "captcha"
+      ]
+    }
+  }
+}

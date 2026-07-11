@@ -7,7 +7,7 @@ description: >-
   Trigger phrases: "download x post", "save tweet", "x post images",
   "x video download", "twitter post assets".
 license: MIT
-allowed-tools: "Bash(npx:*), Bash(pnpm:*)"
+allowed-tools: "Bash(npx:*), Bash(node:*), Bash(pnpm:*)"
 metadata:
   pattern: pipeline
   compatibility: "macOS / Linux; requires Chrome with remote-debugging enabled (port 9222), profile ~/.chrome-labali, and authenticated X session; Node.js ≥ 20 + tsx"
@@ -32,22 +32,61 @@ The sections below (image extraction, anti-detection, MHTML generation) are **im
 
 ## Clipsmith Bundle Normalization
 
-The copied downloader produces a raw post folder with `post.md`, images, optional
-video, and optional MHTML. Before finalizing a Clipsmith capture job, run the
-`raw-output-to-capture.json` normalization step by converting that raw folder
-into a bundle:
+The copied downloader produces a raw post folder with `post.md`, images,
+optional video, and optional MHTML. Before finalizing a Clipsmith capture job,
+convert that raw folder into a bundle with the shared normalizer:
 
-1. Keep `post.md` in the bundle directory; do not copy downloaded media or MHTML
-   into the final bundle.
-2. Create `summary.md` from the captured post text.
-3. Write `capture.json` with schema `clipsmith.capture_bundle.v1`, platform
-   `x`, source/canonical URL, title/author/published metadata when available,
-   `content_files` entries for `summary.md` and `post.md`, an empty `assets`
-   array, warnings, and status.
-4. Run `clipsmith validate-bundle "<bundle_dir>" --json`.
+```bash
+cd /Users/kingsonwu/programming/OctopusGarage/clipsmith
+uv run clipsmith normalize raw x "<raw_dir>" "<bundle_dir>" \
+  --source-url "<original_url>" \
+  --canonical-url "<canonical_url>" \
+  --title "<title>" \
+  --author "<author>" \
+  --captured-at "<iso8601_time>" \
+  --json
+uv run clipsmith validate-bundle "<bundle_dir>" --json
+```
 
-Do not call `clipsmith capture finalize` until `capture.json` exists and
+The normalizer keeps `post.md`, creates or copies `summary.md`, preserves
+`ocr.md`/`ocr.txt` as `kind: "ocr-text"` if present, and writes `capture.json`.
+It intentionally does not copy downloaded media or MHTML into the final bundle
+because the bundle validator does not allow arbitrary raw assets.
+
+Do not call `uv run clipsmith capture finalize` until `capture.json` exists and
 validation succeeds.
+
+## Quality Evaluation
+
+Use the committed eval profile and fixture before changing prompt, extraction,
+media, MHTML, post-type detection, t.co expansion, or normalization behavior:
+
+```bash
+cd /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-x
+node scripts/eval.mjs \
+  --fixture x-kingson-skill-runtime-text \
+  --profile x-kingson-skill-runtime-text
+```
+
+When live X access is available, also validate the known media and article
+profiles:
+
+```bash
+node scripts/eval.mjs \
+  --post_dir "/path/to/x/media-output-folder" \
+  --profile x-droidbuilds-single-image
+
+node scripts/eval.mjs \
+  --post_dir "/path/to/x/article-output-folder" \
+  --profile x-geekcatx-chatgpt-codex-article
+```
+
+The committed fixture is a user-owned text-only post. External media and article
+profiles are live eval profiles only; do not commit third-party full text,
+images, video, or MHTML unless permission is explicit. Use
+`prompts/evaluate-capture.md` for agent AI eval and compare against the fixture
+baseline `evals/ai-evals/x-kingson-skill-runtime-text.md` when working in the
+source repo. Packaged skill installs may omit eval fixtures and baselines.
 
 ### URL Expansion (t.co Shortlinks)
 

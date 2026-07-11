@@ -1,43 +1,21 @@
 #!/usr/bin/env node
-import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  countMarkdownHeadings,
+  fail,
+  longestContentLine,
+  missingPhrases,
+  parseArgs,
+  presentPhrases,
+  readJson,
+  readText,
+} from '../../../script/eval-harness.mjs';
 
-function parseArgs(argv) {
-  const args = {};
-  for (let i = 0; i < argv.length; i += 1) {
-    const token = argv[i];
-    if (!token.startsWith('--')) continue;
-    const key = token.slice(2);
-    const next = argv[i + 1];
-    if (!next || next.startsWith('--')) {
-      args[key] = true;
-      continue;
-    }
-    args[key] = next;
-    i += 1;
-  }
-  return args;
-}
-
-async function readText(path) {
-  return await readFile(path, 'utf8');
-}
-
-async function readJson(path) {
-  return JSON.parse(await readText(path));
-}
-
-function fail(issues, kind, message) {
-  issues.push({ kind, message });
-}
-
-function includesAll(text, phrases) {
-  return phrases.filter((phrase) => !text.includes(phrase));
-}
-
-function includesAny(text, phrases) {
-  return phrases.filter((phrase) => text.includes(phrase));
+function longestArticleLine(markdown) {
+  return longestContentLine(markdown, {
+    skip: (trimmed) => trimmed.startsWith('|') || trimmed.startsWith('```'),
+  });
 }
 
 async function main() {
@@ -90,11 +68,26 @@ async function main() {
   if (summary.length < 80) {
     fail(issues, 'summary', 'summary.md is too short to be useful');
   }
+  if (Number.isFinite(profile.min_headings)) {
+    const headings = countMarkdownHeadings(post);
+    if (headings < profile.min_headings) {
+      fail(issues, 'headings', `Expected at least ${profile.min_headings} headings, got ${headings}`);
+    }
+  }
+  if (Number.isFinite(profile.max_line_chars)) {
+    const longestLine = longestArticleLine(post);
+    if (longestLine > profile.max_line_chars) {
+      fail(issues, 'line_length', `post.md has a line with ${longestLine} chars > ${profile.max_line_chars}`);
+    }
+  }
 
-  for (const phrase of includesAll(post, profile.required_phrases)) {
+  for (const phrase of missingPhrases(post, profile.required_phrases)) {
     fail(issues, 'missing_required_phrase', `Missing required phrase: ${phrase}`);
   }
-  for (const phrase of includesAny(post, profile.forbidden_phrases)) {
+  for (const phrase of missingPhrases(summary, profile.summary_required_phrases || [])) {
+    fail(issues, 'missing_summary_phrase', `Missing summary phrase: ${phrase}`);
+  }
+  for (const phrase of presentPhrases(post, profile.forbidden_phrases)) {
     fail(issues, 'forbidden_phrase', `Forbidden phrase remains: ${phrase}`);
   }
   if (post.includes('This page couldn') || rawText.includes('This page couldn')) {
@@ -110,6 +103,9 @@ async function main() {
   const result = {
     profile: profileName,
     bundle_dir: root,
+    post_chars: post.length,
+    headings: countMarkdownHeadings(post),
+    longest_line_chars: longestArticleLine(post),
     passed: issues.length === 0,
     issues,
   };

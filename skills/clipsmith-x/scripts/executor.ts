@@ -65,6 +65,7 @@ export interface DownloadPostInputs {
   cdp_port?: string;
   timeout_ms?: number;
   overwrite?: boolean;
+  keep_process_alive?: boolean;
 }
 
 export interface DownloadPostResult {
@@ -150,6 +151,7 @@ export async function execute(
   const proxyServer = context?.proxyServer;
   const overwrite = inputs.overwrite ?? false;
   const timeoutMs = inputs.timeout_ms ?? 60_000;
+  const keepProcessAlive = inputs.keep_process_alive ?? false;
 
   const postUrl = canonicalizePostUrl(inputs.post_url ?? "");
   if (!postUrl) throw new Error("post_url is required");
@@ -173,165 +175,169 @@ export async function execute(
   const browser = (await chromium.connectOverCDP(
     `http://localhost:${cdpPort}`
   )) as ChromiumBrowser;
-
-  // Reuse existing X.com tab — avoids new tab + login state loss
-  const existingPages = browser.contexts()[0]?.pages() ?? [];
-  const xPage = existingPages.find(
-    (p: Page) => p.url().startsWith("https://x.com/") || p.url().startsWith("https://twitter.com/")
-  );
-  let page = xPage ?? (await browser.newPage());
-
-  // Always navigate to target URL to ensure we load the correct post
-  if (page.url() !== pageUrl) {
-    await page.goto(pageUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
-  }
-
-  await checkForRiskSignals(page);
-
-  if (await isLoginRequired(page)) {
-    log("[executor] login required — waiting for manual login");
-    await waitForManualLogin(page, "Login required to view post");
-  }
-
-  // Twitter renders content client-side; wait for the tweet/article element to appear
-  const currentUrl = page.url();
-  if (currentUrl.includes("/article/")) {
-    // For X Note article URLs: wait for article view, fallback to status page
-    try {
-      await page.waitForSelector('[data-testid="twitterArticleReadView"]', { timeout: 8000 });
-    } catch {
-      // Article URL not found — X redirected to status URL, try that
-      const statusUrl = `https://x.com/${handle}/status/${tweetId}`;
-      if (page.url() !== statusUrl) {
-        await page.goto(statusUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
-      }
-    }
-  }
-  // Wait for tweet article to appear (covers status URL and article→status fallback)
   try {
-    await page.waitForSelector('article[data-testid="tweet"]', { timeout: 8000 });
-  } catch {
-    log("[executor] warning: tweet article element not found — proceeding anyway");
-  }
-
-  const postType = await detectPostType(page);
-  log(`[executor] post type: ${postType}`);
-
-  const snapshot = await extractTweetSnapshot(page, tweetId);
-
-  const noteId = tweetId;
-  const noteDir = join(
-    ensureAbsolutePath(inputs.output_dir ?? "~/Downloads/x"),
-    noteId
-  );
-  await ensureDir(noteDir);
-
-  const files: string[] = [];
-  const failed: Array<{ url: string; reason: string }> = [];
-  let imageCount = 0;
-  let videoCount = 0;
-  let articleHtmlFile: string | undefined;
-
-  // Route: textOnly
-  if (postType === "textOnly") {
-    log("[executor] textOnly — skipping MHTML generation");
-    if (snapshot.imageUrls.length > 0) {
-      const result = await browseAndCaptureImages(page, snapshot.imageUrls, noteDir, overwrite);
-      imageCount = result.saved.length;
-      failed.push(...result.failed);
-      files.push(...result.saved.map((f) => f.path));
-    }
-  } else if (postType === "article") {
-    // Route: X Note — full cleanup + MHTML + extract embedded images
-    log(`[executor] article — generating MHTML archive`);
-    await cleanupPageForArchive(page, "article");
-
-    const mhtml = await captureMhtml(page, page.url());
-    const mhtmlPath = join(noteDir, "article.mhtml");
-    await saveMhtmlToFile(mhtml, mhtmlPath);
-    articleHtmlFile = mhtmlPath;
-    files.push(mhtmlPath);
-    log(`[executor] MHTML saved: ${mhtmlPath}`);
-
-    const mhtmlImages = await extractMhtmlImages(mhtml, noteDir);
-    imageCount = mhtmlImages.length;
-    log(`[executor] extracted ${imageCount} images from MHTML`);
-
-    // Additional image download for any images MHTML missed
-    const extraImages = await browseAndCaptureImages(
-      page,
-      snapshot.imageUrls,
-      noteDir,
-      overwrite
+    // Reuse existing X.com tab — avoids new tab + login state loss
+    const existingPages = browser.contexts()[0]?.pages() ?? [];
+    const xPage = existingPages.find(
+      (p: Page) => p.url().startsWith("https://x.com/") || p.url().startsWith("https://twitter.com/")
     );
-    for (const img of extraImages.saved) {
-      if (!files.includes(img.path)) {
-        files.push(img.path);
+    let page = xPage ?? (await browser.newPage());
+
+    // Always navigate to target URL to ensure we load the correct post
+    if (page.url() !== pageUrl) {
+      await page.goto(pageUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+    }
+
+    await checkForRiskSignals(page);
+
+    if (await isLoginRequired(page)) {
+      log("[executor] login required — waiting for manual login");
+      await waitForManualLogin(page, "Login required to view post");
+    }
+
+    // Twitter renders content client-side; wait for the tweet/article element to appear
+    const currentUrl = page.url();
+    if (currentUrl.includes("/article/")) {
+      // For X Note article URLs: wait for article view, fallback to status page
+      try {
+        await page.waitForSelector('[data-testid="twitterArticleReadView"]', { timeout: 8000 });
+      } catch {
+        // Article URL not found — X redirected to status URL, try that
+        const statusUrl = `https://x.com/${handle}/status/${tweetId}`;
+        if (page.url() !== statusUrl) {
+          await page.goto(statusUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+        }
       }
     }
-    failed.push(...extraImages.failed);
-  } else {
-    // Route: withMedia (regular tweet with images/video)
-    // 仅清理外部干扰元素，直接下载图片/视频，不生成 MHTML
-    log(`[executor] withMedia — downloading media directly`);
-    await cleanupPageForArchive(page, "withMedia");
-
-    // Download images via browser cache (CDN srcset → highest resolution)
-    if (snapshot.imageUrls.length > 0) {
-      const imgResult = await browseAndCaptureImages(page, snapshot.imageUrls, noteDir, overwrite);
-      imageCount = imgResult.saved.length;
-      failed.push(...imgResult.failed);
-      files.push(...imgResult.saved.map((f) => f.path));
-      log(`[executor] downloaded ${imageCount} image(s) from CDN`);
+    // Wait for tweet article to appear (covers status URL and article→status fallback)
+    try {
+      await page.waitForSelector('article[data-testid="tweet"]', { timeout: 8000 });
+    } catch {
+      log("[executor] warning: tweet article element not found — proceeding anyway");
     }
 
-    // Download video
-    if (snapshot.videoUrls.length > 0) {
-      await simulateVideoPlay(page);
-      const videoResult = await downloadVideos(page, snapshot.videoUrls, noteDir, overwrite);
-      videoCount = videoResult.saved.length;
-      failed.push(...videoResult.failed);
-      files.push(...videoResult.saved.map((v) => v.path));
-      log(`[executor] downloaded ${videoCount} video(s)`);
+    const postType = await detectPostType(page);
+    log(`[executor] post type: ${postType}`);
+
+    const snapshot = await extractTweetSnapshot(page, tweetId);
+
+    const noteId = tweetId;
+    const noteDir = join(
+      ensureAbsolutePath(inputs.output_dir ?? "~/Downloads/x"),
+      noteId
+    );
+    await ensureDir(noteDir);
+
+    const files: string[] = [];
+    const failed: Array<{ url: string; reason: string }> = [];
+    let imageCount = 0;
+    let videoCount = 0;
+    let articleHtmlFile: string | undefined;
+
+    // Route: textOnly
+    if (postType === "textOnly") {
+      log("[executor] textOnly — skipping MHTML generation");
+      if (snapshot.imageUrls.length > 0) {
+        const result = await browseAndCaptureImages(page, snapshot.imageUrls, noteDir, overwrite);
+        imageCount = result.saved.length;
+        failed.push(...result.failed);
+        files.push(...result.saved.map((f) => f.path));
+      }
+    } else if (postType === "article") {
+      // Route: X Note — full cleanup + MHTML + extract embedded images
+      log(`[executor] article — generating MHTML archive`);
+      await cleanupPageForArchive(page, "article");
+
+      const mhtml = await captureMhtml(page, page.url());
+      const mhtmlPath = join(noteDir, "article.mhtml");
+      await saveMhtmlToFile(mhtml, mhtmlPath);
+      articleHtmlFile = mhtmlPath;
+      files.push(mhtmlPath);
+      log(`[executor] MHTML saved: ${mhtmlPath}`);
+
+      const mhtmlImages = await extractMhtmlImages(mhtml, noteDir);
+      imageCount = mhtmlImages.length;
+      log(`[executor] extracted ${imageCount} images from MHTML`);
+
+      // Additional image download for any images MHTML missed
+      const extraImages = await browseAndCaptureImages(
+        page,
+        snapshot.imageUrls,
+        noteDir,
+        overwrite
+      );
+      for (const img of extraImages.saved) {
+        if (!files.includes(img.path)) {
+          files.push(img.path);
+        }
+      }
+      failed.push(...extraImages.failed);
+    } else {
+      // Route: withMedia (regular tweet with images/video)
+      // 仅清理外部干扰元素，直接下载图片/视频，不生成 MHTML
+      log(`[executor] withMedia — downloading media directly`);
+      await cleanupPageForArchive(page, "withMedia");
+
+      // Download images via browser cache (CDN srcset → highest resolution)
+      if (snapshot.imageUrls.length > 0) {
+        const imgResult = await browseAndCaptureImages(page, snapshot.imageUrls, noteDir, overwrite);
+        imageCount = imgResult.saved.length;
+        failed.push(...imgResult.failed);
+        files.push(...imgResult.saved.map((f) => f.path));
+        log(`[executor] downloaded ${imageCount} image(s) from CDN`);
+      }
+
+      // Download video
+      if (snapshot.videoUrls.length > 0) {
+        await simulateVideoPlay(page);
+        const videoResult = await downloadVideos(page, snapshot.videoUrls, noteDir, overwrite);
+        videoCount = videoResult.saved.length;
+        failed.push(...videoResult.failed);
+        files.push(...videoResult.saved.map((v) => v.path));
+        log(`[executor] downloaded ${videoCount} video(s)`);
+      }
+    }
+
+    // Content deduplication — dedupByContent already dedupes by SHA-256;
+    // uniqueFiles gives us the final set of paths to report.
+    const uniqueFiles = await dedupeByContent(
+      files.map((path) => ({ path, url: "" }))
+    );
+
+    // Write post markdown
+    const postMdFile = await writePostMarkdown({
+      noteDir,
+      sourceUrl: postUrl,
+      title: snapshot.articleTitle ?? "",
+      text: snapshot.text ?? "",
+      publishedAt: normalizePublishTime(snapshot.publishedAt),
+      authorHandle: snapshot.authorHandle,
+      authorName: snapshot.authorName,
+      likeCount: snapshot.likeCount,
+      retweetCount: snapshot.retweetCount,
+      replyCount: snapshot.replyCount,
+    });
+    log(`[executor] post.md written: ${postMdFile}`);
+
+    return {
+      output_dir: ensureAbsolutePath(inputs.output_dir ?? "~/Downloads/x"),
+      note_dir: noteDir,
+      note_id: noteId,
+      post_url: postUrl,
+      publish_time: normalizePublishTime(snapshot.publishedAt),
+      post_md_file: postMdFile,
+      article_html_file: articleHtmlFile,
+      image_count: imageCount,
+      video_count: videoCount,
+      failed_count: failed.length,
+      failed,
+      files: uniqueFiles.map((f) => f.path),
+    };
+  } finally {
+    if (!keepProcessAlive) {
+      // Disconnect Playwright's CDP client so Node can exit. The external Chrome
+      // process and profile stay alive for the next invocation.
+      await browser.close().catch(() => undefined);
     }
   }
-
-  // Content deduplication — dedupByContent already dedupes by SHA-256;
-  // uniqueFiles gives us the final set of paths to report.
-  const uniqueFiles = await dedupeByContent(
-    files.map((path) => ({ path, url: "" }))
-  );
-
-  // Write post markdown
-  const postMdFile = await writePostMarkdown({
-    noteDir,
-    sourceUrl: postUrl,
-    title: snapshot.articleTitle ?? "",
-    text: snapshot.text ?? "",
-    publishedAt: normalizePublishTime(snapshot.publishedAt),
-    authorHandle: snapshot.authorHandle,
-    authorName: snapshot.authorName,
-    likeCount: snapshot.likeCount,
-    retweetCount: snapshot.retweetCount,
-    replyCount: snapshot.replyCount,
-  });
-  log(`[executor] post.md written: ${postMdFile}`);
-
-  // Do NOT close browser — reuse the same Chrome process across downloads.
-  // Chrome stays running at localhost:${cdpPort} for the next invocation.
-
-  return {
-    output_dir: ensureAbsolutePath(inputs.output_dir ?? "~/Downloads/x"),
-    note_dir: noteDir,
-    note_id: noteId,
-    post_url: postUrl,
-    publish_time: normalizePublishTime(snapshot.publishedAt),
-    post_md_file: postMdFile,
-    article_html_file: articleHtmlFile,
-    image_count: imageCount,
-    video_count: videoCount,
-    failed_count: failed.length,
-    failed,
-    files: uniqueFiles.map((f) => f.path),
-  };
 }

@@ -10,6 +10,28 @@ from pathlib import Path
 from clipsmith.errors import ClipsmithError
 
 
+SKILL_COPY_EXCLUDE_NAMES = frozenset(
+    {
+        ".DS_Store",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".venv",
+        "__pycache__",
+        "coverage",
+        "coverage.xml",
+        "eval.mjs",
+        "evals",
+        "htmlcov",
+        "node_modules",
+        "playwright-report",
+        "test-results",
+        "tests",
+        "venv",
+    }
+)
+
+
 @dataclass(frozen=True)
 class InstallOptions:
     action: str
@@ -20,28 +42,105 @@ class InstallOptions:
     skip: str | None = None
 
 
+@dataclass(frozen=True)
+class InstallationOperation:
+    label: str
+    skill: str
+    status: str
+
+    def to_line(self) -> str:
+        return f"[{self.label}] {self.status}: {self.skill}"
+
+    def to_json_dict(self) -> dict[str, str]:
+        return {"label": self.label, "skill": self.skill, "status": self.status}
+
+
+@dataclass(frozen=True)
+class InstallationTargetReport:
+    label: str
+    path: Path
+    changed: int
+    skipped: int
+    operations: tuple[InstallationOperation, ...] = ()
+
+    def to_lines(self) -> list[str]:
+        return [
+            *(operation.to_line() for operation in self.operations),
+            f"[{self.label}] done: {self.changed} changed, {self.skipped} skipped",
+        ]
+
+    def to_json_dict(self) -> dict[str, object]:
+        return {
+            "label": self.label,
+            "path": str(self.path),
+            "changed": self.changed,
+            "skipped": self.skipped,
+            "operations": [operation.to_json_dict() for operation in self.operations],
+        }
+
+
+@dataclass(frozen=True)
+class InstallationReport:
+    action: str
+    source_root: Path
+    selected: tuple[str, ...]
+    targets: tuple[InstallationTargetReport, ...] = ()
+    message: str = ""
+
+    def to_lines(self) -> list[str]:
+        if self.message:
+            return [self.message]
+        lines: list[str] = []
+        for target in self.targets:
+            lines.extend(target.to_lines())
+        return lines
+
+    def to_json_dict(self) -> dict[str, object]:
+        return {
+            "action": self.action,
+            "source_root": str(self.source_root),
+            "selected": list(self.selected),
+            "targets": [target.to_json_dict() for target in self.targets],
+            "message": self.message,
+        }
+
+
 def install_skills(options: InstallOptions) -> list[str]:
+    return install_skills_report(options).to_lines()
+
+
+def install_skills_report(options: InstallOptions) -> InstallationReport:
     source_root = find_skills_source()
     selected = select_skills(source_root, only=options.only, skip=options.skip)
     targets = resolve_targets(options)
-    lines: list[str] = []
 
     if not targets:
-        lines.append("No agent skill targets selected or detected.")
-        return lines
-
-    for label, target_root in targets:
-        changed, skipped = _process_target(
-            source_root=source_root,
-            target_root=target_root,
-            label=label,
-            selected=selected,
+        return InstallationReport(
             action=options.action,
-            copy=options.copy,
+            source_root=source_root,
+            selected=tuple(selected),
+            message="No agent skill targets selected or detected.",
         )
-        lines.append(f"[{label}] done: {changed} changed, {skipped} skipped")
 
-    return lines
+    reports: list[InstallationTargetReport] = []
+    for label, target_root in targets:
+        reports.append(
+            _process_target(
+                source_root=source_root,
+                target_root=target_root,
+                label=label,
+                selected=selected,
+                action=options.action,
+                copy=options.copy,
+            )
+        )
+
+    return InstallationReport(
+        action=options.action,
+        source_root=source_root,
+        selected=tuple(selected),
+        targets=tuple(reports),
+    )
 
 
 def doctor_checks() -> list[dict[str, str]]:
@@ -172,9 +271,10 @@ def _process_target(
     selected: list[str],
     action: str,
     copy: bool,
-) -> tuple[int, int]:
+) -> InstallationTargetReport:
     changed = 0
     skipped = 0
+    operations: list[InstallationOperation] = []
     target_root.mkdir(parents=True, exist_ok=True)
 
     for name in selected:
@@ -188,13 +288,19 @@ def _process_target(
                     link_target = destination.parent / link_target
                 if _is_owned_link(link_target.resolve(), source_root.resolve()):
                     destination.unlink()
-                    print(f"[{label}] removed link: {name}")
+                    operations.append(
+                        InstallationOperation(label, name, "removed link")
+                    )
                     changed += 1
                 else:
-                    print(f"[{label}] skip foreign link: {name}")
+                    operations.append(
+                        InstallationOperation(label, name, "skip foreign link")
+                    )
                     skipped += 1
             elif destination.exists():
-                print(f"[{label}] skip real directory: {name}")
+                operations.append(
+                    InstallationOperation(label, name, "skip real directory")
+                )
                 skipped += 1
             continue
 
@@ -205,27 +311,41 @@ def _process_target(
             if _is_owned_link(link_target.resolve(), source_root.resolve()):
                 destination.unlink()
             else:
-                print(f"[{label}] skip foreign link: {name}")
+                operations.append(
+                    InstallationOperation(label, name, "skip foreign link")
+                )
                 skipped += 1
                 continue
         elif destination.exists():
-            print(f"[{label}] skip existing non-link: {name}")
+            operations.append(
+                InstallationOperation(label, name, "skip existing non-link")
+            )
             skipped += 1
             continue
 
         if copy:
-            shutil.copytree(source, destination)
-            print(f"[{label}] copied: {name}")
+            shutil.copytree(source, destination, ignore=_ignore_skill_copy_names)
+            operations.append(InstallationOperation(label, name, "copied"))
         else:
             destination.symlink_to(source, target_is_directory=True)
-            print(f"[{label}] linked: {name}")
+            operations.append(InstallationOperation(label, name, "linked"))
         changed += 1
 
-    return changed, skipped
+    return InstallationTargetReport(
+        label=label,
+        path=target_root,
+        changed=changed,
+        skipped=skipped,
+        operations=tuple(operations),
+    )
 
 
 def _is_owned_link(link_target: Path, source_root: Path) -> bool:
     return link_target == source_root or source_root in link_target.parents
+
+
+def _ignore_skill_copy_names(_directory: str, names: list[str]) -> set[str]:
+    return {name for name in names if name in SKILL_COPY_EXCLUDE_NAMES}
 
 
 def _split_names(value: str) -> list[str]:

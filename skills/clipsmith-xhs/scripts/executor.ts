@@ -31,6 +31,7 @@ import {
   type DownloadPostInputs,
   type DownloadPostResult,
 } from "./core";
+import { writeImageOcrMarkdown } from "./ocr";
 
 export interface ExecutorContext {
   logger?: (message: string) => void;
@@ -274,6 +275,13 @@ export async function execute(inputs: DownloadPostInputs, context?: ExecutorCont
 
     const imageResult = await browseAndCaptureImages(page, snapshot.imageUrls, noteDir, overwrite);
     imageResult.saved = await removeThumbnailDuplicates(imageResult.saved, log);
+    const ocrResult = await writeImageOcrMarkdown({
+      noteDir,
+      imagePaths: imageResult.saved.map((item) => item.path),
+    });
+    for (const warning of ocrResult.warnings) {
+      log(`[ocr] ${warning}`);
+    }
     if (snapshot.videoUrls.length > 0) {
       await simulateVideoPlay(page);
     }
@@ -339,6 +347,8 @@ export async function execute(inputs: DownloadPostInputs, context?: ExecutorCont
       post_url: canonicalPostUrl,
       publish_time: publishTime,
       post_md_file: postMdFile,
+      ocr_md_file: ocrResult.ocrMdFile,
+      ocr_count: ocrResult.ocrCount,
       comments_json_file: commentsJsonFile,
       comments_md_file: commentsMdFile,
       comments_dir: commentsDir,
@@ -349,8 +359,10 @@ export async function execute(inputs: DownloadPostInputs, context?: ExecutorCont
       comment_image_count: commentImageCount,
       failed_count: failed.length,
       failed,
+      warnings: ocrResult.warnings,
       files: [
         ...imageResult.saved.map((item) => item.path),
+        ocrResult.ocrMdFile,
         ...mergedVideoFiles,
         ...commentImageFiles,
         ...(commentsJsonFile ? [commentsJsonFile] : []),

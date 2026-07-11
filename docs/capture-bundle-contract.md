@@ -61,10 +61,41 @@ validation issues.
 The validator intentionally does not allow arbitrary `raw/` files. Web raw
 assets are audit evidence for source review, not a general archive area.
 
+## OKF Export
+
+The Clipsmith bundle contract is not OKF. `capture.json` remains the metadata
+source of truth, and `post.md` does not need YAML frontmatter.
+
+Use `clipsmith export okf <bundle_dir> <okf_workspace>` when a downstream
+consumer wants an Open Knowledge Format concept document. The OKF file is a
+derived projection and does not replace the capture bundle. See
+[OKF Export](okf-export.md).
+
+## Raw Output Normalization
+
+Provider skills that first create a raw output folder should use the shared
+normalizer instead of hand-writing `capture.json`:
+
+```bash
+uv run clipsmith normalize raw "<provider>" "<raw_dir>" "<bundle_dir>" \
+  --source-url "<original_url>" \
+  --canonical-url "<canonical_url>" \
+  --title "<title>" \
+  --author "<author>" \
+  --published-at "<publish_time>" \
+  --captured-at "<iso8601_time>" \
+  --json
+```
+
+The normalizer accepts `post.md` or `article.md` as primary content, writes
+bundle `post.md`, creates or copies `summary.md`, preserves `ocr.md`/`ocr.txt`
+as `ocr-text` when present, and writes a validator-compatible `capture.json`.
+It does not copy arbitrary raw assets into the final bundle.
+
 ## Validate
 
 ```bash
-clipsmith validate-bundle /path/to/bundle --json
+uv run clipsmith validate-bundle /path/to/bundle --json
 ```
 
 Exit code `0` means valid. Exit code `1` means invalid or incomplete.

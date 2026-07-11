@@ -38,6 +38,8 @@ const { values } = parseArgs({
     'timeout-ms': { type: 'string', short: 't' },
     'timeout_ms': { type: 'string' },
     'overwrite': { type: 'boolean', short: 'w', default: false },
+    'keep-process-alive': { type: 'boolean', default: false },
+    'keep_process_alive': { type: 'boolean', default: false },
     'help': { type: 'boolean', short: 'h', default: false },
   },
 });
@@ -57,11 +59,13 @@ function pickString(primary: ArgKey, fallback: ArgKey): string | undefined {
 }
 
 if (values.help) {
-  console.log(`Usage: npx tsx scripts/run.ts --post-url <url> [--output-dir <dir>] [--overwrite]`);
+  console.log(`Usage: npx tsx scripts/run.ts --post-url <url> [--output-dir <dir>] [--overwrite] [--keep-process-alive]`);
   process.exit(0);
 }
 
 const timeoutMs = pickString('timeout_ms', 'timeout-ms');
+const keepProcessAlive =
+  Boolean(values.keep_process_alive) || Boolean(values['keep-process-alive']);
 const inputs = {
   post_url: pickString('post_url', 'post-url'),
   output_dir: pickString('output_dir', 'output-dir'),
@@ -69,6 +73,7 @@ const inputs = {
   profile_dir: pickString('profile_dir', 'profile-dir'),
   timeout_ms: timeoutMs ? parseInt(timeoutMs) : undefined,
   overwrite: values.overwrite,
+  keep_process_alive: keepProcessAlive,
 };
 
 ensureDeps();
