@@ -205,6 +205,52 @@ test("downloadVideos streams video with browser cookies and referer", async (t) 
   assert.equal(requestHeaders.get("cookie"), "web_session=abc; a1=def");
 });
 
+test("downloadVideos preserves partial data after interruption", async (t) => {
+  const tmp = join(process.cwd(), ".tmp-video-partial-test");
+  await rm(tmp, { recursive: true, force: true });
+  await mkdir(tmp, { recursive: true });
+  t.after(() => rm(tmp, { recursive: true, force: true }));
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    let sent = false;
+    const body = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        if (!sent) {
+          sent = true;
+          controller.enqueue(new Uint8Array([7, 8]));
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        controller.error(new Error("terminated"));
+      },
+    });
+    return new Response(body, {
+      status: 200,
+      headers: { "content-type": "video/mp4" },
+    });
+  }) as typeof fetch;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const page = {
+    url: () => "https://www.xiaohongshu.com/explore/example",
+    context: () => ({ cookies: async () => [] }),
+  };
+  const result = await downloadVideos(
+    page as never,
+    ["https://sns-video-v4-m.xhscdn.com/stream/interrupted.mp4"],
+    tmp,
+    false
+  );
+
+  assert.equal(result.saved.length, 0);
+  assert.equal(result.failed.length, 1);
+  assert.match(result.failed[0].error, /terminated/);
+  assert.deepEqual([...await readFile(join(tmp, "video-001.mp4.part"))], [7, 8]);
+});
+
 test("selectPreferredPostVideoUrls prefers the player-loaded direct video over alternate streams", () => {
   const low =
     "https://sns-video-v4-m.xhscdn.com/stream/1/110/386/low_386.mp4?sign=low";

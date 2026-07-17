@@ -1829,7 +1829,6 @@ async function downloadVideoStream(
     await rename(partTarget, adjustedTarget);
     return { path: adjustedTarget, url, probe };
   } catch (error) {
-    await unlink(partTarget).catch(() => undefined);
     throw error;
   }
 }

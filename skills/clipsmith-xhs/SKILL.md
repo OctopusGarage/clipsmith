@@ -56,6 +56,37 @@ The normalizer keeps `post.md`, creates or copies `summary.md`, preserves
 comment images into the final bundle because the bundle validator does not allow
 arbitrary raw assets.
 
+When the user wants this capture in an Alcove/filesystem inbox, the inbox item
+must still contain the post's downloaded images/videos next to the bundle files.
+Use the raw downloader output as sidecar media input:
+
+```bash
+cd /Users/kingsonwu/programming/OctopusGarage/clipsmith
+uv run clipsmith sink inbox "<bundle_dir>" "<workspace>" \
+  --raw-assets-dir "<raw_dir>" \
+  --cleanup-raw-assets \
+  --json
+```
+
+This creates:
+
+```text
+inbox/xhs/<bundle-id>/
+  capture.json
+  post.md
+  summary.md
+  ocr.md
+  assets/
+    001.webp
+    video-001.mp4
+```
+
+Do not report an Alcove inbox capture as complete if downloaded XHS media
+remains only in `~/Downloads/xhs` or another raw directory.
+For an inbox capture, completion also requires the sink JSON to contain
+`"raw_assets_cleanup": "removed"`. Any other result keeps the raw directory
+for diagnosis and must be reported as incomplete cleanup.
+
 Do not call `uv run clipsmith capture finalize` until `capture.json` exists and
 validation succeeds.
 
@@ -134,8 +165,25 @@ XiaoHongShu applies behavioral analysis to detect automation. Violations of thes
 - Carousel navigation: `page.keyboard.press('ArrowRight')` first (most reliable); DOM selectors (`.note-slider .right-arrow`, `[class*="rightArrow"]`, `.swiper-button-next`) as fallback.
 
 **Video:**
-- Before downloading, simulate user engagement: bring the tab to front, click the video/play button, wait 3–5 seconds for buffering.
-- Video download still uses `page.request.get()` (stream content is not fully cached); the play simulation above is what makes this behaviorally acceptable.
+- Before downloading, simulate user engagement through CDP in the existing XHS
+  tab: start or continue playback and wait 3–5 seconds for buffering. Never call
+  `bringToFront()` or otherwise steal focus from the user.
+- Extract the real video URL from resources the player loaded after playback.
+- Preserve and log quality evidence supplied by XHS (dimensions, bitrate, size,
+  frame rate, and codec), omitting signed query parameters from logs. Rank by
+  that evidence; use the player-loaded candidate only as the final tie-breaker.
+- If no comparable quality metadata exists, describe the result as the
+  player-loaded rendition. Do not claim it is the highest-quality or native-4K
+  source merely because the output canvas is 3840×2160.
+- Download the selected video URL with the authenticated browser cookies and
+  current post `referer`, streaming to `*.part` before the final rename.
+- Run `ffprobe` on the completed `*.part`; rename only when it contains a video
+  stream and positive duration. Report measured resolution, frame rate, codecs,
+  duration, and bitrate.
+- If multiple direct MP4 candidates are visible, keep the best evidenced
+  candidate rather than downloading every quality variant. Use player-loaded
+  status only as the final tie-breaker. Only HLS/segment downloads should
+  produce multiple files for later merge.
 
 **General:**
 - Always operate within the user's authenticated Chrome session (CDP reuse) — never launch a headless or separate browser.
@@ -169,6 +217,8 @@ A run is successful only when all conditions hold:
 8. When `include_comments=true`, comments are exported under `comments/` with `comments.json` and `comments.md`.
 9. When comment images exist, they are downloaded under `comments/images/`.
 10. URL output and logs use canonical `/explore/<note_id>` form without token query.
+11. Inbox captures report `raw_assets_cleanup: removed`; no duplicate raw post
+    directory remains under `~/Downloads/xhs`.
 
 Comment export failure behavior:
 - If extraction yields zero comments on a post known to have them: retain all downloaded files, return `comments_count=0`, do not throw. Partial coverage of hierarchy/reply linking is acceptable and expected.
@@ -197,7 +247,8 @@ Comment export failure behavior:
   - ask user to complete login manually,
   - continue in the same session after confirmation.
 - On partial download failures:
-  - keep successfully downloaded files,
+  - keep successfully downloaded files and any non-empty `*.part`,
+  - never delete the raw directory,
   - return result with explicit failure count.
 
 ## Resources
