@@ -86,6 +86,21 @@ def build_parser() -> argparse.ArgumentParser:
     inbox_parser.add_argument("bundle_path")
     inbox_parser.add_argument("workspace")
     inbox_parser.add_argument(
+        "--raw-assets-dir",
+        help=(
+            "Optional raw provider output directory. Media files are copied to "
+            "the inbox item assets/ directory as sidecar source assets."
+        ),
+    )
+    inbox_parser.add_argument(
+        "--cleanup-raw-assets",
+        action="store_true",
+        help=(
+            "Remove the exact raw directory after copied media passes size "
+            "and SHA-256 verification."
+        ),
+    )
+    inbox_parser.add_argument(
         "--json", action="store_true", help="Print sink result as JSON"
     )
 
@@ -261,7 +276,11 @@ def _handle_sink(args: argparse.Namespace) -> int:
     if args.sink_command == "directory":
         result = DirectorySink(args.output_dir).write(args.bundle_path)
     elif args.sink_command == "inbox":
-        result = InboxSink(args.workspace).write(args.bundle_path)
+        result = InboxSink(args.workspace).write(
+            args.bundle_path,
+            raw_assets_dir=args.raw_assets_dir,
+            cleanup_raw_assets=args.cleanup_raw_assets,
+        )
     else:
         print("clipsmith sink requires a subcommand", file=sys.stderr)
         return 2

@@ -118,6 +118,63 @@ def test_sink_inbox_json_copies_bundle_to_platform_inbox(tmp_path, capsys):
     assert (target / "capture.json").is_file()
 
 
+def test_sink_inbox_json_can_copy_raw_assets(tmp_path, capsys):
+    workspace = tmp_path / "workspace"
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    (raw_dir / "001.webp").write_bytes(b"cover")
+    (raw_dir / "video-001.mp4").write_bytes(b"video")
+
+    code = main(
+        [
+            "sink",
+            "inbox",
+            str(FIXTURES / "valid-xhs-bundle"),
+            str(workspace),
+            "--raw-assets-dir",
+            str(raw_dir),
+            "--json",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    target = workspace / "inbox" / "xhs" / "20260707-example-xhs"
+    assert code == 0
+    assert json.loads(captured.out) == {
+        "status": "written",
+        "path": str(target),
+        "assets_path": str(target / "assets"),
+        "asset_count": "2",
+    }
+    assert (target / "assets" / "001.webp").read_bytes() == b"cover"
+    assert (target / "assets" / "video-001.mp4").read_bytes() == b"video"
+
+
+def test_sink_inbox_cleanup_raw_assets_removes_verified_source(tmp_path, capsys):
+    workspace = tmp_path / "workspace"
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    (raw_dir / "001.webp").write_bytes(b"cover")
+
+    code = main(
+        [
+            "sink",
+            "inbox",
+            str(FIXTURES / "valid-xhs-bundle"),
+            str(workspace),
+            "--raw-assets-dir",
+            str(raw_dir),
+            "--cleanup-raw-assets",
+            "--json",
+        ]
+    )
+    result = json.loads(capsys.readouterr().out)
+
+    assert code == 0
+    assert result["raw_assets_cleanup"] == "removed"
+    assert not raw_dir.exists()
+
+
 def test_export_okf_json_writes_okf_concept(tmp_path, capsys):
     code = main(
         [
