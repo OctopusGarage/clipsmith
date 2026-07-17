@@ -145,6 +145,29 @@ def test_inbox_sink_keeps_workspace_boundaries(tmp_path, relative):
     assert raw_dir.exists()
 
 
+def test_inbox_sink_rejects_raw_directory_that_contains_workspace_before_copy(tmp_path):
+    raw_dir = tmp_path / "container"
+    workspace = raw_dir / "workspace"
+    raw_dir.mkdir()
+    (raw_dir / "video.mp4").write_bytes(b"video")
+
+    class NoWriteExporter:
+        def write_bundle(self, *_args, **_kwargs):
+            raise AssertionError("sink write must not start for an unsafe raw path")
+
+    sink = InboxSink(workspace)
+    sink.exporter = NoWriteExporter()
+
+    with pytest.raises(BundleError, match="Unsafe raw cleanup path"):
+        sink.write(
+            FIXTURES / "valid-xhs-bundle",
+            raw_assets_dir=raw_dir,
+            cleanup_raw_assets=True,
+        )
+
+    assert raw_dir.exists()
+
+
 def test_inbox_sink_keeps_raw_when_copy_digest_differs(tmp_path):
     workspace = tmp_path / "workspace"
     raw_dir = tmp_path / "raw"

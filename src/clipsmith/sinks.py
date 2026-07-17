@@ -159,7 +159,7 @@ def _assert_safe_raw_cleanup_path(raw_dir: Path, workspace: Path) -> Path:
         workspace_resolved,
         (workspace_resolved / "inbox").resolve(strict=False),
     }
-    if resolved in forbidden:
+    if resolved in forbidden or resolved in workspace_resolved.parents:
         raise BundleError(f"Unsafe raw cleanup path: {raw_dir}")
     return resolved
 
