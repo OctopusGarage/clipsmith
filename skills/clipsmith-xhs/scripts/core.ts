@@ -1,9 +1,11 @@
-import { constants } from "node:fs";
-import { access, mkdir, unlink, writeFile } from "node:fs/promises";
+import { constants, createWriteStream } from "node:fs";
+import { access, mkdir, rename, unlink, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { homedir } from "node:os";
 import { extname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { promisify } from "node:util";
 import type { Page } from "playwright";
 
@@ -90,6 +92,37 @@ export interface PostSnapshot {
   publishedAt: string;
   imageUrls: string[];
   videoUrls: string[];
+  videoCandidates?: VideoCandidate[];
+  selectedVideoCandidate?: SelectedVideoCandidate;
+}
+
+export interface VideoCandidate {
+  url: string;
+  source: "state" | "player";
+  codec?: string;
+  width?: number;
+  height?: number;
+  frameRate?: number;
+  bitrate?: number;
+  size?: number;
+}
+
+export interface SelectedVideoCandidate extends VideoCandidate {
+  selectionBasis: "metadata" | "url-hint" | "player-fallback";
+}
+
+interface XhsVideoStreamVariant {
+  masterUrl?: string;
+  width?: string | number;
+  height?: string | number;
+  fps?: string | number;
+  frameRate?: string | number;
+  bitrate?: string | number;
+  bitRate?: string | number;
+  videoBitrate?: string | number;
+  size?: string | number;
+  codec?: string;
+  videoCodec?: string;
 }
 
 export interface PostComment {
@@ -327,8 +360,71 @@ async function extractImageUrlsByCarouselNavigation(page: Page): Promise<string[
   return ordered;
 }
 
+async function extractLoadedVideoResourceUrls(page: Page): Promise<string[]> {
+  try {
+    const urls = await page.evaluate(() => {
+      const isXhsVideoResourceUrl = (raw: string): boolean => {
+        if (!raw) return false;
+        const lower = raw.toLowerCase();
+        if (lower.startsWith("blob:") || lower.startsWith("data:")) return false;
+
+        let hostname = "";
+        try {
+          hostname = new URL(raw).hostname.toLowerCase();
+        } catch {
+          return false;
+        }
+        const isXhsCdnHost = hostname === "xhscdn.com" || hostname.endsWith(".xhscdn.com");
+        if (!isXhsCdnHost) return false;
+
+        return (
+          lower.includes("sns-video") ||
+          lower.includes("/stream/") ||
+          lower.includes("/hls/") ||
+          lower.includes(".mp4") ||
+          lower.includes(".m3u8") ||
+          lower.includes(".mov") ||
+          lower.includes(".webm")
+        );
+      };
+
+      return performance
+        .getEntriesByType("resource")
+        .map((entry) => entry.name)
+        .filter(isXhsVideoResourceUrl);
+    });
+    return dedupeUrls(urls);
+  } catch {
+    return [];
+  }
+}
+
 export async function extractPostSnapshot(page: Page, noteId: string): Promise<PostSnapshot> {
   const snapshot = await page.evaluate((targetNoteId) => {
+    const positiveNumber = (...values: unknown[]): number | undefined => {
+      for (const value of values) {
+        const parsed = typeof value === "number" ? value : Number(value);
+        if (Number.isFinite(parsed) && parsed > 0) return parsed;
+      }
+      return undefined;
+    };
+    const streamCandidate = (
+      item: XhsVideoStreamVariant,
+      codec: string
+    ): VideoCandidate | undefined => {
+      const url = item?.masterUrl || "";
+      if (!url) return undefined;
+      return {
+        url,
+        source: "state",
+        codec: item.codec || item.videoCodec || codec,
+        width: positiveNumber(item.width),
+        height: positiveNumber(item.height),
+        frameRate: positiveNumber(item.fps, item.frameRate),
+        bitrate: positiveNumber(item.videoBitrate, item.bitrate, item.bitRate),
+        size: positiveNumber(item.size),
+      };
+    };
     const initialState = (window as { __INITIAL_STATE__?: unknown }).__INITIAL_STATE__ as
       | {
           note?: {
@@ -340,8 +436,8 @@ export async function extractPostSnapshot(page: Page, noteId: string): Promise<P
                   video?: {
                     media?: {
                       stream?: {
-                        h264?: Array<{ masterUrl?: string }>;
-                        h265?: Array<{ masterUrl?: string }>;
+                        h264?: XhsVideoStreamVariant[];
+                        h265?: XhsVideoStreamVariant[];
                       };
                     };
                     masterUrl?: string;
@@ -356,8 +452,8 @@ export async function extractPostSnapshot(page: Page, noteId: string): Promise<P
                 video?: {
                   media?: {
                     stream?: {
-                      h264?: Array<{ masterUrl?: string }>;
-                      h265?: Array<{ masterUrl?: string }>;
+                      h264?: XhsVideoStreamVariant[];
+                      h265?: XhsVideoStreamVariant[];
                     };
                   };
                   masterUrl?: string;
@@ -383,19 +479,27 @@ export async function extractPostSnapshot(page: Page, noteId: string): Promise<P
         .map((item) => item?.urlDefault || item?.url || item?.infoList?.[0]?.url || "")
         .filter(Boolean);
       const video = note.video;
+      const h264 = video?.media?.stream?.h264 ?? [];
+      const h265 = video?.media?.stream?.h265 ?? [];
       const videoUrls = [
-        ...(video?.media?.stream?.h264 ?? []).map((item) => item?.masterUrl || ""),
-        ...(video?.media?.stream?.h265 ?? []).map((item) => item?.masterUrl || ""),
+        ...h264.map((item) => item?.masterUrl || ""),
+        ...h265.map((item) => item?.masterUrl || ""),
         video?.masterUrl || "",
         video?.playUrl || "",
         video?.url || "",
       ].filter(Boolean);
+      const videoCandidates = [
+        ...h264.map((item) => streamCandidate(item, "h264")),
+        ...h265.map((item) => streamCandidate(item, "h265")),
+        ...videoUrls.map((url) => ({ url, source: "state" as const })),
+      ].filter((candidate): candidate is VideoCandidate => Boolean(candidate));
       return {
         title: note.title || "",
         text: note.desc || "",
         publishedAt: String(note.time ?? ""),
         imageUrls: urls,
         videoUrls,
+        videoCandidates,
       };
     }
 
@@ -470,6 +574,7 @@ export async function extractPostSnapshot(page: Page, noteId: string): Promise<P
           return (element.currentSrc || element.src || element.getAttribute("src") || "").trim();
         })
         .filter(Boolean),
+      videoCandidates: [] as VideoCandidate[],
     };
     return fallback;
   }, noteId);
@@ -481,13 +586,23 @@ export async function extractPostSnapshot(page: Page, noteId: string): Promise<P
     const carouselUrls = await extractImageUrlsByCarouselNavigation(page);
     imageUrls = filterPostImageUrls(carouselUrls);
   }
+  const loadedVideoUrls = await extractLoadedVideoResourceUrls(page);
+  const videoCandidates = [
+    ...((snapshot.videoCandidates || []) as VideoCandidate[]),
+    ...(snapshot.videoUrls || []).map((url) => ({ url, source: "state" as const })),
+    ...loadedVideoUrls.map((url) => ({ url, source: "player" as const })),
+  ];
+  const selectedVideoCandidate = selectPreferredPostVideoCandidate(videoCandidates);
+  const videoUrls = selectedVideoCandidate ? [selectedVideoCandidate.url] : [];
 
   return {
     title: normalizeWhitespace(snapshot.title || ""),
     text: normalizeWhitespace(snapshot.text || ""),
     publishedAt: normalizeWhitespace(snapshot.publishedAt || ""),
     imageUrls,
-    videoUrls: filterPostVideoUrls(snapshot.videoUrls || []),
+    videoUrls,
+    videoCandidates,
+    selectedVideoCandidate,
   };
 }
 
@@ -1237,6 +1352,114 @@ export function filterPostVideoUrls(urls: string[]): string[] {
   });
 }
 
+function videoUrlQualityScore(url: string): number {
+  const lower = url.toLowerCase();
+  let score = 0;
+  if (lower.includes("4k") || lower.includes("2160")) score += 4000;
+  if (lower.includes("1440")) score += 3000;
+  if (lower.includes("1080")) score += 2000;
+  if (lower.includes("720")) score += 1000;
+  if (lower.includes("h265") || lower.includes("hevc")) score += 100;
+  if (lower.includes("master")) score += 50;
+  return score;
+}
+
+function hasVideoQualityMetadata(candidate: VideoCandidate): boolean {
+  return [
+    candidate.width,
+    candidate.height,
+    candidate.frameRate,
+    candidate.bitrate,
+    candidate.size,
+  ].some((value) => typeof value === "number" && value > 0);
+}
+
+function videoCodecScore(codec: string | undefined): number {
+  const normalized = (codec || "").toLowerCase();
+  if (normalized.includes("h265") || normalized.includes("hevc")) return 2;
+  if (normalized.includes("h264") || normalized.includes("avc")) return 1;
+  return 0;
+}
+
+function compareVideoCandidates(a: VideoCandidate, b: VideoCandidate): number {
+  const fields: Array<[number, number]> = [
+    [(a.width || 0) * (a.height || 0), (b.width || 0) * (b.height || 0)],
+    [a.bitrate || 0, b.bitrate || 0],
+    [a.size || 0, b.size || 0],
+    [a.frameRate || 0, b.frameRate || 0],
+    [videoCodecScore(a.codec), videoCodecScore(b.codec)],
+    [videoUrlQualityScore(a.url), videoUrlQualityScore(b.url)],
+    [a.source === "player" ? 1 : 0, b.source === "player" ? 1 : 0],
+  ];
+  for (const [aValue, bValue] of fields) {
+    if (aValue !== bValue) return bValue - aValue;
+  }
+  return 0;
+}
+
+export function selectPreferredPostVideoCandidate(
+  candidates: VideoCandidate[]
+): SelectedVideoCandidate | undefined {
+  const filteredUrls = new Set(filterPostVideoUrls(candidates.map((candidate) => candidate.url)));
+  const byIdentity = new Map<string, VideoCandidate>();
+  for (const candidate of candidates) {
+    if (!filteredUrls.has(candidate.url)) continue;
+    const identity = toUrlIdentity(candidate.url);
+    const existing = byIdentity.get(identity);
+    if (!existing) {
+      byIdentity.set(identity, candidate);
+      continue;
+    }
+    byIdentity.set(identity, {
+      ...existing,
+      ...candidate,
+      source: existing.source === "player" || candidate.source === "player" ? "player" : "state",
+    });
+  }
+
+  const selected = [...byIdentity.values()].sort(compareVideoCandidates)[0];
+  if (!selected) return undefined;
+  const selectionBasis = hasVideoQualityMetadata(selected)
+    ? "metadata"
+    : videoUrlQualityScore(selected.url) > 0
+      ? "url-hint"
+      : "player-fallback";
+  return { ...selected, selectionBasis };
+}
+
+export function formatVideoCandidateDiagnostic(candidate: VideoCandidate): string {
+  let location = "invalid-url";
+  try {
+    const parsed = new URL(candidate.url);
+    location = `${parsed.hostname}${parsed.pathname}`;
+  } catch {
+    // Keep signed or malformed URL text out of diagnostics.
+  }
+  const dimensions = candidate.width && candidate.height
+    ? `${candidate.width}x${candidate.height}`
+    : "unknown-size";
+  return [
+    location,
+    `source=${candidate.source}`,
+    dimensions,
+    `codec=${candidate.codec || "unknown"}`,
+    `fps=${candidate.frameRate || "unknown"}`,
+    `bitrate=${candidate.bitrate || "unknown"}`,
+    `bytes=${candidate.size || "unknown"}`,
+  ].join(" ");
+}
+
+export function selectPreferredPostVideoUrls(
+  stateVideoUrls: string[],
+  loadedVideoUrls: string[]
+): string[] {
+  const selected = selectPreferredPostVideoCandidate([
+    ...stateVideoUrls.map((url) => ({ url, source: "state" as const })),
+    ...loadedVideoUrls.map((url) => ({ url, source: "player" as const })),
+  ]);
+  return selected ? [selected.url] : [];
+}
+
 export async function isLoginRequired(page: Page, snapshot: PostSnapshot): Promise<boolean> {
   if (snapshot.text || snapshot.imageUrls.length > 0 || snapshot.videoUrls.length > 0) {
     return false;
@@ -1440,6 +1663,87 @@ function inferExtensionFromUrl(url: string): string {
   return "";
 }
 
+async function assertCanWriteTarget(target: string, overwrite: boolean): Promise<void> {
+  if (overwrite) {
+    return;
+  }
+  await access(target, constants.F_OK)
+    .then(() => {
+      throw new Error(`File already exists: ${target}`);
+    })
+    .catch((error: unknown) => {
+      if (error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "ENOENT") {
+        return;
+      }
+      if (error instanceof Error && error.message.startsWith("File already exists:")) {
+        throw error;
+      }
+      throw error;
+    });
+}
+
+async function browserCookieHeader(page: Page, url: string): Promise<string> {
+  try {
+    const cookies = await page.context().cookies(url);
+    return cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ");
+  } catch {
+    return "";
+  }
+}
+
+async function downloadVideoStream(
+  page: Page,
+  url: string,
+  outputDir: string,
+  index: number,
+  overwrite: boolean
+): Promise<{ path: string; url: string }> {
+  const extFromUrl = inferExtensionFromUrl(url) || ".mp4";
+  const target = resolve(outputDir, `video-${String(index).padStart(3, "0")}${extFromUrl}`);
+  await assertCanWriteTarget(target, overwrite);
+
+  const cookie = await browserCookieHeader(page, url);
+  const headers: Record<string, string> = {
+    referer: page.url(),
+  };
+  if (cookie) {
+    headers.cookie = cookie;
+  }
+
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  if (!looksLikeVideoUrl(url, contentType)) {
+    throw new Error(`Not a video response: ${contentType || "unknown"}`);
+  }
+
+  const ext = inferExtensionFromContentType(contentType) || extFromUrl;
+  const adjustedTarget =
+    ext === extFromUrl
+      ? target
+      : resolve(outputDir, `video-${String(index).padStart(3, "0")}${ext}`);
+  await assertCanWriteTarget(adjustedTarget, overwrite);
+
+  const partTarget = `${adjustedTarget}.part`;
+  try {
+    if (response.body) {
+      await pipeline(Readable.fromWeb(response.body), createWriteStream(partTarget));
+    } else {
+      const buffer = Buffer.from(await response.arrayBuffer());
+      await writeFile(partTarget, buffer);
+    }
+    await rename(partTarget, adjustedTarget);
+  } catch (error) {
+    await unlink(partTarget).catch(() => undefined);
+    throw error;
+  }
+
+  return { path: adjustedTarget, url };
+}
+
 async function downloadOne(
   page: Page,
   url: string,
@@ -1455,21 +1759,7 @@ async function downloadOne(
       : `${String(index).padStart(3, "0")}${extFromUrl}`;
   const target = resolve(outputDir, fileName);
 
-  if (!overwrite) {
-    await access(target, constants.F_OK)
-      .then(() => {
-        throw new Error(`File already exists: ${target}`);
-      })
-      .catch((error: unknown) => {
-        if (error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "ENOENT") {
-          return;
-        }
-        if (error instanceof Error && error.message.startsWith("File already exists:")) {
-          throw error;
-        }
-        throw error;
-      });
-  }
+  await assertCanWriteTarget(target, overwrite);
 
   // For images: prefer browser HTTP cache over a new outbound request.
   // Comment images are typically already loaded during comment scroll; reading from cache
@@ -1733,18 +2023,25 @@ export async function browseAndCaptureImages(
  * and wait for it to buffer before any download attempt.
  */
 export async function simulateVideoPlay(page: Page): Promise<void> {
-  // Focus the page (tab activation)
-  await page.bringToFront();
+  // CDP can control media in a background tab; never steal focus from the user.
   await page.waitForTimeout(500 + Math.random() * 300);
 
   // Try to click the video element or its play button to start playback
-  const clicked = await page.evaluate(() => {
-    const selectors = [
-      "video",
-      ".play-btn",
-      "[class*='play']",
-      "[class*='video'] button",
-    ];
+  const clicked = await page.evaluate(async () => {
+    const video = document.querySelector("video") as HTMLVideoElement | null;
+    if (video) {
+      video.focus();
+      if (!video.paused) {
+        return true;
+      }
+      video.click();
+      if (video.paused && typeof video.play === "function") {
+        await video.play().catch(() => undefined);
+      }
+      return true;
+    }
+
+    const selectors = [".play-btn", "[class*='play']", "[class*='video'] button"];
     for (const sel of selectors) {
       const el = document.querySelector(sel) as HTMLElement | null;
       if (el) {
@@ -1774,7 +2071,7 @@ export async function downloadVideos(
   let index = 1;
   for (const url of filterPostVideoUrls(urls)) {
     try {
-      const item = await downloadOne(page, url, outputDir, index, "video", overwrite);
+      const item = await downloadVideoStream(page, url, outputDir, index, overwrite);
       saved.push(item);
       index += 1;
     } catch (error) {

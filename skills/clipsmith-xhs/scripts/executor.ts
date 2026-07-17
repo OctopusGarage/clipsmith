@@ -18,6 +18,7 @@ import {
   ensureDir,
   extractPostSnapshot,
   extractPostComments,
+  formatVideoCandidateDiagnostic,
   isLoginRequired,
   mergeVideosAndCleanup,
   mediaUrlIdentity,
@@ -110,6 +111,20 @@ function toTimeout(value: number | undefined): number {
     return 90000;
   }
   return Math.max(10000, Math.min(value, 300000));
+}
+
+export function shouldPrimeVideoBeforeSnapshot(pageUrl: string, hasVideoElement: boolean): boolean {
+  if (hasVideoElement) {
+    return true;
+  }
+  try {
+    const url = new URL(pageUrl);
+    const containerType = url.searchParams.get("container_type")?.toLowerCase() || "";
+    const type = url.searchParams.get("type")?.toLowerCase() || "";
+    return containerType.includes("video") || type === "video";
+  } catch {
+    return pageUrl.toLowerCase().includes("video");
+  }
 }
 
 function assertRequiredString(value: string | undefined, key: string): string {
@@ -236,6 +251,12 @@ export async function execute(inputs: DownloadPostInputs, context?: ExecutorCont
 
     await checkForRiskSignals(page);
 
+    const hasVideoElement = await page.locator("video").count().then((count) => count > 0).catch(() => false);
+    if (shouldPrimeVideoBeforeSnapshot(page.url(), hasVideoElement)) {
+      log("video detail detected, simulating playback before media extraction");
+      await simulateVideoPlay(page);
+    }
+
     let snapshot = await extractPostSnapshot(page, noteId);
     if (await isLoginRequired(page, snapshot)) {
       log("login appears required, waiting for manual login in current browser window");
@@ -248,6 +269,11 @@ export async function execute(inputs: DownloadPostInputs, context?: ExecutorCont
       await page.waitForLoadState("networkidle", { timeout: timeoutMs }).catch(() => undefined);
       await page.waitForTimeout(1000 + Math.random() * 500);
       await checkForRiskSignals(page);
+      const hasVideoElementAfterLogin = await page.locator("video").count().then((count) => count > 0).catch(() => false);
+      if (shouldPrimeVideoBeforeSnapshot(page.url(), hasVideoElementAfterLogin)) {
+        log("video detail detected after login, simulating playback before media extraction");
+        await simulateVideoPlay(page);
+      }
       const currentUrlAfterLogin = page.url();
       if (!currentUrlAfterLogin.includes(noteId)) {
         throw new Error(
@@ -260,6 +286,15 @@ export async function execute(inputs: DownloadPostInputs, context?: ExecutorCont
     if (snapshot.imageUrls.length === 0 && snapshot.videoUrls.length === 0) {
       throw new Error(
         `No post media found for note ${noteId}. The current page may not be the target note detail page.`
+      );
+    }
+
+    for (const candidate of snapshot.videoCandidates || []) {
+      log(`[video-candidate] ${formatVideoCandidateDiagnostic(candidate)}`);
+    }
+    if (snapshot.selectedVideoCandidate) {
+      log(
+        `[video-selected] basis=${snapshot.selectedVideoCandidate.selectionBasis} ${formatVideoCandidateDiagnostic(snapshot.selectedVideoCandidate)}`
       );
     }
 
