@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
+import vm from "node:vm";
 
 import {
   downloadVideos,
@@ -14,6 +15,48 @@ import {
   simulateVideoPlay,
 } from "../scripts/core";
 import { shouldPrimeVideoBeforeSnapshot } from "../scripts/executor";
+
+test("installPageEvaluateRuntime supports tsx-named callbacks in the browser realm", async () => {
+  const core = await import("../scripts/core");
+  const installPageEvaluateRuntime = (
+    core as typeof core & {
+      installPageEvaluateRuntime?: (page: unknown) => Promise<void>;
+    }
+  ).installPageEvaluateRuntime;
+
+  assert.equal(typeof installPageEvaluateRuntime, "function");
+
+  const browserRealm = vm.createContext({});
+  let initScript = "";
+  const page = {
+    addInitScript: async ({ content }: { content: string }) => {
+      initScript = content;
+    },
+    evaluate: async (callbackOrSource: string | (() => unknown)) => {
+      const source = typeof callbackOrSource === "string"
+        ? callbackOrSource
+        : `(${callbackOrSource.toString()})()`;
+      return vm.runInContext(source, browserRealm);
+    },
+  };
+
+  await installPageEvaluateRuntime!(page);
+
+  const result = await page.evaluate(() => {
+    const nestedCallback = () => 42;
+    return nestedCallback();
+  });
+  assert.equal(result, 42);
+  assert.match(initScript, /__name/);
+
+  const navigatedRealm = vm.createContext({});
+  vm.runInContext(initScript, navigatedRealm);
+  const navigatedResult = vm.runInContext(
+    `(() => { const nestedCallback = __name(() => 43, "nestedCallback"); return nestedCallback(); })()`,
+    navigatedRealm
+  );
+  assert.equal(navigatedResult, 43);
+});
 
 test("extractPostSnapshot includes loaded XHS video resources when the DOM video src is a blob", async () => {
   const videoUrl =

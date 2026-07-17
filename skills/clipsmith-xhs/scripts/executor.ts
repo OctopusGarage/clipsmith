@@ -20,6 +20,7 @@ import {
   extractPostComments,
   formatVideoCandidateDiagnostic,
   formatVideoProbeDiagnostic,
+  installPageEvaluateRuntime,
   isLoginRequired,
   mergeVideosAndCleanup,
   mediaUrlIdentity,
@@ -196,6 +197,7 @@ export async function execute(inputs: DownloadPostInputs, context?: ExecutorCont
       log(`no existing Xiaohongshu tab found, opening new tab`);
     }
     const page = xhsPage ?? (await browserContext.newPage());
+    await installPageEvaluateRuntime(page);
 
     let postUrlInput = inputs.post_url?.trim();
     if (!postUrlInput) {

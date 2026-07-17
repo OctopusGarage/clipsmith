@@ -15,6 +15,19 @@ export const DEFAULT_PROFILE_DIR = resolve(homedir(), ".chrome-labali-no-proxy")
 export const DEFAULT_CDP_PORT = "9223";
 export const DEFAULT_PROXY_MODE = "none";
 
+const PAGE_EVALUATE_RUNTIME =
+  "globalThis.__name = globalThis.__name || function(target) { return target; };";
+
+/**
+ * tsx preserves function names with an esbuild `__name` helper. Playwright
+ * serializes page callbacks without that module-scoped helper, so install the
+ * identity helper in both the current document and every future navigation.
+ */
+export async function installPageEvaluateRuntime(page: Page): Promise<void> {
+  await page.addInitScript({ content: PAGE_EVALUATE_RUNTIME });
+  await page.evaluate(PAGE_EVALUATE_RUNTIME);
+}
+
 const LOGIN_HINTS = ["登录", "扫码登录", "Sign in", "Login", "手机号登录", "验证码登录"];
 const IMAGE_EXT_HINTS = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".avif"];
 const VIDEO_EXT_HINTS = [".mp4", ".mov", ".webm", ".m3u8"];
