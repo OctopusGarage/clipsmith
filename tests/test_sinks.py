@@ -61,6 +61,125 @@ def test_inbox_sink_copies_bundle_to_platform_inbox(tmp_path):
     assert (target / "summary.md").is_file()
 
 
+def test_inbox_sink_copies_raw_social_media_assets_to_item_assets(tmp_path):
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    (raw_dir / "post.md").write_text("# Post\n", encoding="utf-8")
+    (raw_dir / "001.webp").write_bytes(b"cover")
+    (raw_dir / "video-001.mp4").write_bytes(b"video")
+    (raw_dir / "comments" / "images").mkdir(parents=True)
+    (raw_dir / "comments" / "images" / "comment-001.jpg").write_bytes(b"comment")
+
+    result = InboxSink(tmp_path).write(
+        FIXTURES / "valid-xhs-bundle",
+        raw_assets_dir=raw_dir,
+    )
+
+    target = tmp_path / "inbox" / "xhs" / "20260707-example-xhs"
+    assert result == {
+        "status": "written",
+        "path": str(target),
+        "assets_path": str(target / "assets"),
+        "asset_count": "3",
+    }
+    assert (target / "assets" / "001.webp").read_bytes() == b"cover"
+    assert (target / "assets" / "video-001.mp4").read_bytes() == b"video"
+    assert (
+        target / "assets" / "comments" / "images" / "comment-001.jpg"
+    ).read_bytes() == b"comment"
+    assert not (target / "assets" / "post.md").exists()
+
+
+def test_inbox_sink_removes_raw_assets_after_verified_copy(tmp_path):
+    workspace = tmp_path / "workspace"
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    (raw_dir / "001.webp").write_bytes(b"cover")
+    (raw_dir / "video-001.mp4").write_bytes(b"video")
+
+    result = InboxSink(workspace).write(
+        FIXTURES / "valid-xhs-bundle",
+        raw_assets_dir=raw_dir,
+        cleanup_raw_assets=True,
+    )
+
+    assert result["raw_assets_cleanup"] == "removed"
+    assert not raw_dir.exists()
+    target = Path(result["path"])
+    assert (target / "assets" / "001.webp").read_bytes() == b"cover"
+    assert (target / "assets" / "video-001.mp4").read_bytes() == b"video"
+
+
+def test_inbox_sink_keeps_symlinked_raw_directory(tmp_path):
+    actual = tmp_path / "actual"
+    actual.mkdir()
+    (actual / "video.mp4").write_bytes(b"video")
+    raw_dir = tmp_path / "raw-link"
+    raw_dir.symlink_to(actual, target_is_directory=True)
+
+    with pytest.raises(BundleError, match="Unsafe raw cleanup path"):
+        InboxSink(tmp_path / "workspace").write(
+            FIXTURES / "valid-xhs-bundle",
+            raw_assets_dir=raw_dir,
+            cleanup_raw_assets=True,
+        )
+
+    assert actual.exists()
+    assert raw_dir.is_symlink()
+
+
+@pytest.mark.parametrize("relative", [Path("."), Path("inbox")])
+def test_inbox_sink_keeps_workspace_boundaries(tmp_path, relative):
+    workspace = tmp_path / "workspace"
+    raw_dir = workspace / relative
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    (raw_dir / "video.mp4").write_bytes(b"video")
+
+    with pytest.raises(BundleError, match="Unsafe raw cleanup path"):
+        InboxSink(workspace).write(
+            FIXTURES / "valid-xhs-bundle",
+            raw_assets_dir=raw_dir,
+            cleanup_raw_assets=True,
+        )
+
+    assert raw_dir.exists()
+
+
+def test_inbox_sink_keeps_raw_when_copy_digest_differs(tmp_path):
+    workspace = tmp_path / "workspace"
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    (raw_dir / "video.mp4").write_bytes(b"video")
+
+    def corrupt_copy(_source, target):
+        target.write_bytes(b"corrupt")
+
+    with pytest.raises(BundleError, match="verification failed"):
+        InboxSink(workspace, copy_file=corrupt_copy).write(
+            FIXTURES / "valid-xhs-bundle",
+            raw_assets_dir=raw_dir,
+            cleanup_raw_assets=True,
+        )
+
+    assert raw_dir.exists()
+
+
+def test_inbox_sink_keeps_raw_when_no_media_was_copied(tmp_path):
+    workspace = tmp_path / "workspace"
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    (raw_dir / "post.md").write_text("# Post\n", encoding="utf-8")
+
+    with pytest.raises(BundleError, match="No raw media assets"):
+        InboxSink(workspace).write(
+            FIXTURES / "valid-xhs-bundle",
+            raw_assets_dir=raw_dir,
+            cleanup_raw_assets=True,
+        )
+
+    assert raw_dir.exists()
+
+
 def test_sinks_choose_unique_suffix_for_duplicate_writes(tmp_path):
     sink = DirectorySink(tmp_path)
 
