@@ -125,6 +125,18 @@ interface XhsVideoStreamVariant {
   videoCodec?: string;
 }
 
+export interface VideoProbe {
+  duration: number;
+  size: number;
+  bitrate: number;
+  width: number;
+  height: number;
+  frameRate: number;
+  videoCodec: string;
+  audioCodec: string;
+  hasAudio: boolean;
+}
+
 export interface PostComment {
   commentId?: string;
   parentCommentId?: string;
@@ -1691,13 +1703,91 @@ async function browserCookieHeader(page: Page, url: string): Promise<string> {
   }
 }
 
+function positiveProbeNumber(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function parseFrameRate(value: unknown): number {
+  if (typeof value !== "string") return positiveProbeNumber(value);
+  const [numerator, denominator] = value.split("/").map(Number);
+  if (Number.isFinite(numerator) && Number.isFinite(denominator) && denominator > 0) {
+    return numerator / denominator;
+  }
+  return positiveProbeNumber(value);
+}
+
+export function parseVideoProbe(raw: string): VideoProbe {
+  const payload = JSON.parse(raw) as {
+    streams?: Array<{
+      codec_type?: string;
+      codec_name?: string;
+      width?: number | string;
+      height?: number | string;
+      avg_frame_rate?: string;
+      bit_rate?: number | string;
+    }>;
+    format?: {
+      duration?: number | string;
+      size?: number | string;
+      bit_rate?: number | string;
+    };
+  };
+  const video = (payload.streams || []).find((stream) => stream.codec_type === "video");
+  if (!video) throw new Error("ffprobe found no video stream");
+  const duration = positiveProbeNumber(payload.format?.duration);
+  if (duration <= 0) throw new Error("ffprobe found no positive duration");
+  const audio = (payload.streams || []).find((stream) => stream.codec_type === "audio");
+  return {
+    duration,
+    size: positiveProbeNumber(payload.format?.size),
+    bitrate: positiveProbeNumber(payload.format?.bit_rate || video.bit_rate),
+    width: positiveProbeNumber(video.width),
+    height: positiveProbeNumber(video.height),
+    frameRate: parseFrameRate(video.avg_frame_rate),
+    videoCodec: video.codec_name || "unknown",
+    audioCodec: audio?.codec_name || "",
+    hasAudio: Boolean(audio),
+  };
+}
+
+export function formatVideoProbeDiagnostic(probe: VideoProbe): string {
+  return [
+    `measured=${probe.width || "unknown"}x${probe.height || "unknown"}`,
+    `fps=${probe.frameRate || "unknown"}`,
+    `video=${probe.videoCodec}`,
+    `audio=${probe.audioCodec || "none"}`,
+    `duration=${probe.duration}`,
+    `bitrate=${probe.bitrate || "unknown"}`,
+    `bytes=${probe.size || "unknown"}`,
+  ].join(" ");
+}
+
+export async function probeVideoFile(path: string): Promise<VideoProbe> {
+  const { stdout } = await execFileAsync(
+    "ffprobe",
+    [
+      "-v",
+      "error",
+      "-show_entries",
+      "format=duration,size,bit_rate:stream=codec_type,codec_name,width,height,avg_frame_rate,bit_rate",
+      "-of",
+      "json",
+      path,
+    ],
+    { maxBuffer: 4 * 1024 * 1024 }
+  );
+  return parseVideoProbe(stdout);
+}
+
 async function downloadVideoStream(
   page: Page,
   url: string,
   outputDir: string,
   index: number,
-  overwrite: boolean
-): Promise<{ path: string; url: string }> {
+  overwrite: boolean,
+  probeVideo: (path: string) => Promise<VideoProbe>
+): Promise<{ path: string; url: string; probe: VideoProbe }> {
   const extFromUrl = inferExtensionFromUrl(url) || ".mp4";
   const target = resolve(outputDir, `video-${String(index).padStart(3, "0")}${extFromUrl}`);
   await assertCanWriteTarget(target, overwrite);
@@ -1735,13 +1825,13 @@ async function downloadVideoStream(
       const buffer = Buffer.from(await response.arrayBuffer());
       await writeFile(partTarget, buffer);
     }
+    const probe = await probeVideo(partTarget);
     await rename(partTarget, adjustedTarget);
+    return { path: adjustedTarget, url, probe };
   } catch (error) {
     await unlink(partTarget).catch(() => undefined);
     throw error;
   }
-
-  return { path: adjustedTarget, url };
 }
 
 async function downloadOne(
@@ -2063,15 +2153,16 @@ export async function downloadVideos(
   page: Page,
   urls: string[],
   outputDir: string,
-  overwrite: boolean
-): Promise<{ saved: Array<{ path: string; url: string }>; failed: DownloadFailure[] }> {
-  const saved: Array<{ path: string; url: string }> = [];
+  overwrite: boolean,
+  probeVideo: (path: string) => Promise<VideoProbe> = probeVideoFile
+): Promise<{ saved: Array<{ path: string; url: string; probe: VideoProbe }>; failed: DownloadFailure[] }> {
+  const saved: Array<{ path: string; url: string; probe: VideoProbe }> = [];
   const failed: DownloadFailure[] = [];
 
   let index = 1;
   for (const url of filterPostVideoUrls(urls)) {
     try {
-      const item = await downloadVideoStream(page, url, outputDir, index, overwrite);
+      const item = await downloadVideoStream(page, url, outputDir, index, overwrite, probeVideo);
       saved.push(item);
       index += 1;
     } catch (error) {

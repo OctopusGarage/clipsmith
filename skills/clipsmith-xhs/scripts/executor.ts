@@ -19,6 +19,7 @@ import {
   extractPostSnapshot,
   extractPostComments,
   formatVideoCandidateDiagnostic,
+  formatVideoProbeDiagnostic,
   isLoginRequired,
   mergeVideosAndCleanup,
   mediaUrlIdentity,
@@ -321,6 +322,9 @@ export async function execute(inputs: DownloadPostInputs, context?: ExecutorCont
       await simulateVideoPlay(page);
     }
     const videoResult = await downloadVideos(page, snapshot.videoUrls, noteDir, overwrite);
+    for (const savedVideo of videoResult.saved) {
+      log(`[video-probe] ${formatVideoProbeDiagnostic(savedVideo.probe)}`);
+    }
     const mergedVideoFiles = await mergeVideosAndCleanup(
       noteDir,
       videoResult.saved.map((item) => item.path),

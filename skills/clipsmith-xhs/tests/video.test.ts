@@ -7,6 +7,8 @@ import {
   downloadVideos,
   extractPostSnapshot,
   formatVideoCandidateDiagnostic,
+  formatVideoProbeDiagnostic,
+  parseVideoProbe,
   selectPreferredPostVideoCandidate,
   selectPreferredPostVideoUrls,
   simulateVideoPlay,
@@ -184,7 +186,17 @@ test("downloadVideos streams video with browser cookies and referer", async (t) 
     }),
   };
 
-  const result = await downloadVideos(page as never, [videoUrl], tmp, false);
+  const result = await downloadVideos(page as never, [videoUrl], tmp, false, async () => ({
+    duration: 1,
+    size: 4,
+    bitrate: 32,
+    width: 1920,
+    height: 1080,
+    frameRate: 50,
+    videoCodec: "h265",
+    audioCodec: "aac",
+    hasAudio: true,
+  }));
 
   assert.equal(result.failed.length, 0);
   assert.equal(result.saved.length, 1);
@@ -277,4 +289,63 @@ test("video candidate diagnostics omit signed query parameters", () => {
   assert.match(diagnostic, /3840x2160/);
   assert.match(diagnostic, /bitrate=9000000/);
   assert.doesNotMatch(diagnostic, /secret|sign=|\?t=/);
+});
+
+test("parseVideoProbe accepts a complete video and audio result", () => {
+  const probe = parseVideoProbe(
+    JSON.stringify({
+      streams: [
+        {
+          codec_type: "video",
+          codec_name: "hevc",
+          width: 3840,
+          height: 2160,
+          avg_frame_rate: "50/1",
+          bit_rate: "6487781",
+        },
+        { codec_type: "audio", codec_name: "aac", bit_rate: "127992" },
+      ],
+      format: { duration: "11207.568", size: "9281146845", bit_rate: "6624914" },
+    })
+  );
+
+  assert.equal(probe.width, 3840);
+  assert.equal(probe.height, 2160);
+  assert.equal(probe.frameRate, 50);
+  assert.equal(probe.hasAudio, true);
+  assert.equal(probe.videoCodec, "hevc");
+  assert.equal(probe.duration, 11207.568);
+});
+
+test("parseVideoProbe rejects missing video and zero duration", () => {
+  assert.throws(
+    () => parseVideoProbe('{"streams":[],"format":{"duration":"10"}}'),
+    /video stream/
+  );
+  assert.throws(
+    () =>
+      parseVideoProbe(
+        '{"streams":[{"codec_type":"video"}],"format":{"duration":"0"}}'
+      ),
+    /positive duration/
+  );
+});
+
+test("video probe diagnostics report measured output without native-quality claims", () => {
+  const diagnostic = formatVideoProbeDiagnostic({
+    duration: 11207.568,
+    size: 9281146845,
+    bitrate: 6624914,
+    width: 3840,
+    height: 2160,
+    frameRate: 50,
+    videoCodec: "hevc",
+    audioCodec: "aac",
+    hasAudio: true,
+  });
+
+  assert.match(diagnostic, /measured=3840x2160/);
+  assert.match(diagnostic, /fps=50/);
+  assert.match(diagnostic, /bitrate=6624914/);
+  assert.doesNotMatch(diagnostic, /native|highest/i);
 });
