@@ -61,6 +61,43 @@ validation issues.
 The validator intentionally does not allow arbitrary `raw/` files. Web raw
 assets are audit evidence for source review, not a general archive area.
 
+## Sidecar Media
+
+The final bundle is the portable review/metadata unit, not the complete local
+archive for social-media captures. Provider raw folders may contain large post
+media such as downloaded images and videos. Utility skill output folders may
+also contain extracted snapshots or audio. Those files stay outside
+`capture.json.assets` so bundle validation remains small and deterministic.
+
+When a caller explicitly uses the filesystem inbox sink, raw media can be copied
+next to the bundle files as sidecar assets:
+
+```text
+inbox/<platform>/<bundle-id>/
+  capture.json
+  post.md
+  summary.md
+  ocr.md
+  assets/
+    001.webp
+    video-001.mp4
+    snapshots/snapshot_000001.jpg
+    audio/audio.m4a
+    comments/images/comment-001.jpg
+```
+
+Use:
+
+```bash
+uv run clipsmith sink inbox "<bundle_dir>" "<workspace>" \
+  --raw-assets-dir "<raw_dir>" \
+  --json
+```
+
+`--raw-assets-dir` copies image/video/audio files only. It deliberately does not
+copy `post.md`, `summary.md`, `ocr.md`, comments JSON/Markdown, or other raw
+control files into `assets/`.
+
 ## OKF Export
 
 The Clipsmith bundle contract is not OKF. `capture.json` remains the metadata
@@ -90,7 +127,9 @@ uv run clipsmith normalize raw "<provider>" "<raw_dir>" "<bundle_dir>" \
 The normalizer accepts `post.md` or `article.md` as primary content, writes
 bundle `post.md`, creates or copies `summary.md`, preserves `ocr.md`/`ocr.txt`
 as `ocr-text` when present, and writes a validator-compatible `capture.json`.
-It does not copy arbitrary raw assets into the final bundle.
+It does not copy arbitrary raw assets into the final bundle. For social-media
+captures or utility output folders, preserve downloaded or extracted sidecar
+media with `uv run clipsmith sink inbox --raw-assets-dir "<raw_dir>"`.
 
 ## Validate
 

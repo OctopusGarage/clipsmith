@@ -1,0 +1,28 @@
+name: clipsmith-video-snapshot
+description: Extract timestamped image snapshots from local video using ffmpeg.
+executor: scripts/run.ts
+inputs:
+  video_path:
+    type: string
+    required: true
+    description: Local input video path.
+  output_dir:
+    type: string
+    required: false
+    description: Directory for snapshots and manifest. Default <video_stem>_snapshots beside the video.
+  mode:
+    type: string
+    required: false
+    description: Snapshot mode smart|fixed. Default smart.
+  fps:
+    type: number
+    required: false
+    description: Fixed sampling fps or smart fallback base. Default 0.5.
+  scene:
+    type: number
+    required: false
+    description: Scene-change threshold. Default 0.3.
+  max_gap:
+    type: number
+    required: false
+    description: Maximum seconds between sampled snapshots in smart mode. Default 1.2.

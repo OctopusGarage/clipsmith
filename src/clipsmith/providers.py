@@ -78,6 +78,8 @@ class ProviderRegistry:
             (".png", ".jpg", ".jpeg", ".heic", ".tiff", ".bmp", ".gif", ".webp")
         ):
             return self._provider_by_name("image-ocr")
+        if not host:
+            return None
         wildcard_provider = None
         for provider in self._providers:
             for domain in provider.domains:

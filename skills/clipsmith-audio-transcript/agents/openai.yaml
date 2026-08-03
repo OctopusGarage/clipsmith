@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: Clipsmith Audio Transcript
+  description: Convert a local audio file to text using an explicit local transcription command.
+  default_prompt: Use this skill only for audio-to-text. Require a local transcript command and do not extract video audio, create snapshots, run OCR, or write capture bundles.

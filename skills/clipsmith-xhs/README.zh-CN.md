@@ -16,7 +16,7 @@
 从 GitHub 安装：
 
 ```bash
-npx skills add /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-xhs
+npx skills add <clipsmith-repo>/skills/clipsmith-xhs
 ```
 
 更新到最新版本：再次执行安装命令。
@@ -24,7 +24,7 @@ npx skills add /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clips
 ## 2) 快速使用
 
 ```bash
-cd /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-xhs
+cd <clipsmith-repo>/skills/clipsmith-xhs
 npx tsx scripts/run.ts \
   --post_url "https://www.xiaohongshu.com/explore/<note_id>?xsec_token=...&xsec_source=pc_user" \
   --output_dir "/absolute/output/dir"

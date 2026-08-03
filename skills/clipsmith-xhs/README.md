@@ -17,7 +17,7 @@ Current output policy:
 Install from GitHub:
 
 ```bash
-npx skills add /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-xhs
+npx skills add <clipsmith-repo>/skills/clipsmith-xhs
 ```
 
 Update to latest version: run the install command again.
@@ -25,7 +25,7 @@ Update to latest version: run the install command again.
 ## 2) Quick Start
 
 ```bash
-cd /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-xhs
+cd <clipsmith-repo>/skills/clipsmith-xhs
 npx tsx scripts/run.ts \
   --post_url "https://www.xiaohongshu.com/explore/<note_id>?xsec_token=...&xsec_source=pc_user" \
   --output_dir "/absolute/output/dir"

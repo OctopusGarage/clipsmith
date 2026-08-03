@@ -44,7 +44,14 @@ Optional sinks:
 ```bash
 uv run clipsmith sink directory "<bundle_dir>" "<output_dir>" --json
 uv run clipsmith sink inbox "<bundle_dir>" "<inbox_workspace>" --json
+uv run clipsmith sink inbox "<bundle_dir>" "<inbox_workspace>" \
+  --raw-assets-dir "<raw_dir>" \
+  --json
 ```
+
+Use `--raw-assets-dir` for social-media captures when the provider raw folder
+contains downloaded images or videos. The bundle remains lightweight and
+validator-compatible; the sink destination receives the media under `assets/`.
 
 Optional knowledge-format export:
 

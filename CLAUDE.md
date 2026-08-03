@@ -12,6 +12,7 @@ uv run clipsmith validate-bundle "<bundle_dir>" --json
 uv run clipsmith capture finalize "<job_id_or_job_path>" "<bundle_dir>" --state-dir /tmp/clipsmith-state
 uv run clipsmith sink directory "<bundle_dir>" "<output_dir>" --json
 uv run clipsmith sink inbox "<bundle_dir>" "<inbox_workspace>" --json
+uv run clipsmith sink inbox "<bundle_dir>" "<inbox_workspace>" --raw-assets-dir "<raw_dir>" --json
 uv run pytest -q
 ./script/check-health.sh
 ```
@@ -32,6 +33,10 @@ uv run pytest -q
 - Keep browser/session/proxy/CDP/login strategy inside provider skills.
 - Do not write knowledge records.
 - Sink to an external inbox only when explicitly asked.
+- For social-media captures with a raw output folder, include
+  `--raw-assets-dir <raw_dir>` when sinking to an inbox. The sink copies images
+  and videos into the destination `assets/` directory; the bundle itself stays
+  limited to reviewable text and metadata.
 - Report login walls, bot protection, missing sessions, partial captures, and
   validation issues directly.
 

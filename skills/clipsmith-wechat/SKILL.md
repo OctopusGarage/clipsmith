@@ -13,7 +13,7 @@ allowed-tools: "Bash(npx:*), Bash(node:*)"
 **The download logic is fully implemented. Always invoke the existing script — do NOT write a new one.**
 
 ```bash
-cd /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-wechat
+cd <clipsmith-repo>/skills/clipsmith-wechat
 npx tsx scripts/run.ts \
   --post_url "<url>" \
   --output_dir "$HOME/Downloads/wechat"
@@ -28,7 +28,7 @@ The copied downloader produces a raw article folder with `article.md`,
 that raw folder into a bundle with the shared normalizer:
 
 ```bash
-cd /Users/kingsonwu/programming/OctopusGarage/clipsmith
+cd <clipsmith-repo>
 uv run clipsmith normalize raw wechat "<raw_dir>" "<bundle_dir>" \
   --source-url "<original_url>" \
   --canonical-url "<canonical_url>" \
@@ -55,7 +55,7 @@ Use the committed eval profile and fixture before changing prompt, extraction,
 image, MHTML, or normalization behavior:
 
 ```bash
-cd /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-wechat
+cd <clipsmith-repo>/skills/clipsmith-wechat
 node scripts/eval.mjs \
   --fixture wechat-wang-yangming-heart-study \
   --profile wechat-wang-yangming-heart-study

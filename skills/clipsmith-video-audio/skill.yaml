@@ -1,0 +1,16 @@
+name: clipsmith-video-audio
+description: Extract one audio file from a local video using ffmpeg.
+executor: scripts/run.ts
+inputs:
+  video_path:
+    type: string
+    required: true
+    description: Local input video path.
+  output_dir:
+    type: string
+    required: false
+    description: Directory for audio output and metadata. Default <video_stem>_audio beside the video.
+  audio_format:
+    type: string
+    required: false
+    description: Output format m4a|wav. Default m4a.

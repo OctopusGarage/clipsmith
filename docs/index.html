@@ -562,10 +562,11 @@
         <h2 id="commands">The protocol surface is scriptable.</h2>
         <pre><code>clipsmith providers --json
 clipsmith capture start "https://example.com/post" --state-dir /tmp/clipsmith-state
-clipsmith validate-bundle /path/to/bundle --json
-clipsmith capture finalize "&lt;job_id_or_job_path&gt;" /path/to/bundle --state-dir /tmp/clipsmith-state
-clipsmith export okf /path/to/bundle /path/to/okf-workspace --json
-clipsmith sink inbox /path/to/bundle /path/to/inbox-workspace --json</code></pre>
+	clipsmith validate-bundle /path/to/bundle --json
+	clipsmith capture finalize "&lt;job_id_or_job_path&gt;" /path/to/bundle --state-dir /tmp/clipsmith-state
+	clipsmith export okf /path/to/bundle /path/to/okf-workspace --json
+	clipsmith sink inbox /path/to/bundle /path/to/inbox-workspace --json
+	clipsmith sink inbox /path/to/bundle /path/to/inbox-workspace --raw-assets-dir /path/to/raw-output --json</code></pre>
       </section>
 
       <section class="section contract" id="contract">

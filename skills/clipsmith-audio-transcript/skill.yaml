@@ -1,0 +1,16 @@
+name: clipsmith-audio-transcript
+description: Transcribe local audio using an explicit local command template.
+executor: scripts/run.ts
+inputs:
+  audio_path:
+    type: string
+    required: true
+    description: Local input audio path.
+  output_dir:
+    type: string
+    required: false
+    description: Directory for transcript output. Default <audio_stem>_transcript beside the audio.
+  transcript_cmd:
+    type: string
+    required: true
+    description: Local command template. Supports {audio}, {output_dir}, and {output_text}.

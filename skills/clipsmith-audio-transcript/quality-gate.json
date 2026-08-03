@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "skill": "clipsmith-audio-transcript",
+  "capture_kind": "ocr",
+  "raw_evidence": [
+    "transcript.txt",
+    "transcript.md",
+    "transcription command metadata"
+  ],
+  "deterministic_checks": [
+    {
+      "name": "skill regression",
+      "command": "bash skills/clipsmith-audio-transcript/tests/test_regression.sh"
+    }
+  ],
+  "agent_ai_eval": {
+    "required": true,
+    "reason": "Audio transcription quality requires agent review of transcript completeness and command provenance."
+  },
+  "ready_report": [
+    "transcript output status",
+    "transcription command used",
+    "Provider quality gate: PASS|FAIL"
+  ]
+}

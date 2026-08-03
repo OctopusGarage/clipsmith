@@ -89,7 +89,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--raw-assets-dir",
         help=(
             "Optional raw provider output directory. Media files are copied to "
-            "the inbox item assets/ directory as sidecar source assets."
+            "the destination assets/ directory as sidecar source assets."
         ),
     )
     inbox_parser.add_argument(

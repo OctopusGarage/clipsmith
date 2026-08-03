@@ -90,7 +90,7 @@ Run `clipsmith validate-bundle "<bundle_dir>" --json` before finalizing.
 ## Execution
 
 ```bash
-cd /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-ocr
+cd <clipsmith-repo>/skills/clipsmith-ocr
 npx tsx scripts/run.ts \
   --image_path "/path/to/image.jpg" \
   [--output_text "/path/to/result.txt"] \
@@ -102,7 +102,7 @@ The wrapper invokes `uv run --project <skillRoot> python scripts/ocr-image-macos
 
 To use the full skill root path:
 ```bash
-SKILL=/Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-ocr
+SKILL=<clipsmith-repo>/skills/clipsmith-ocr
 npx tsx "$SKILL/scripts/run.ts" --image_path "/path/to/image.jpg"
 ```
 

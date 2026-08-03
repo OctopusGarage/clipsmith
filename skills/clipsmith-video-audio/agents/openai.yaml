@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: Clipsmith Video Audio
+  description: Extract an audio file from a local video with ffmpeg.
+  default_prompt: Use this skill only to extract audio from local video files. Do not transcribe audio, create snapshots, run OCR, or write capture bundles.

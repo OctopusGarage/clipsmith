@@ -7,7 +7,7 @@ This skill extracts text from local images on macOS using the native Vision.fram
 Install from GitHub:
 
 ```bash
-npx skills add /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-ocr
+npx skills add <clipsmith-repo>/skills/clipsmith-ocr
 ```
 
 Update to latest version: run the install command again.
@@ -21,7 +21,7 @@ The skill ships a `pyproject.toml`. The `scripts/run.ts` wrapper automatically i
 If you see `Missing macOS Vision bridge dependencies`, restore the venv with:
 
 ```bash
-uv sync --project /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-ocr
+uv sync --project <clipsmith-repo>/skills/clipsmith-ocr
 ```
 
 Do **not** run `pip install pyobjc-*` system-wide — it installs into the wrong Python and won't be picked up by `run.ts`.
@@ -29,7 +29,7 @@ Do **not** run `pip install pyobjc-*` system-wide — it installs into the wrong
 ## 3) Quick Start
 
 ```bash
-cd /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-ocr
+cd <clipsmith-repo>/skills/clipsmith-ocr
 npx tsx scripts/run.ts \
   --image_path "/path/to/image.jpg"
 ```
@@ -55,6 +55,6 @@ Optional flags:
 
 ## 6) Troubleshooting
 
-- `Missing macOS Vision bridge dependencies`: run `uv sync --project /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-ocr`. Do NOT use pip install.
+- `Missing macOS Vision bridge dependencies`: run `uv sync --project <clipsmith-repo>/skills/clipsmith-ocr`. Do NOT use pip install.
 - Empty output: check that the image contains visible text and is not corrupted.
 - Poor accuracy: try switching to `--recognition_level accurate` (default) or adjusting `--languages` to match the dominant script.

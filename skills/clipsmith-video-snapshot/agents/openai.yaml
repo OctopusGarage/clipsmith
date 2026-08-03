@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: Clipsmith Video Snapshot
+  description: Extract timestamped snapshots from a local video with ffmpeg.
+  default_prompt: Use this skill only to create video snapshots. For OCR, run clipsmith-ocr separately on the generated image files. Do not extract audio, transcribe speech, or write capture bundles.

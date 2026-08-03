@@ -54,6 +54,10 @@ runtime skill installs.
   required by `docs/provider-quality-gate.md`.
 - Do not write knowledge records.
 - Sink to an external inbox only when explicitly asked.
+- When sinking social-media captures that have a provider raw output folder,
+  use `clipsmith sink inbox --raw-assets-dir <raw_dir>` so downloaded images and
+  videos land under the destination `assets/` directory. The validated bundle
+  stays lightweight.
 - Do not fabricate content when login, browser automation, or network access
   fails. Preserve partial assets and report warnings.
 

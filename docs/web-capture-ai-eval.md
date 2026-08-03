@@ -13,7 +13,7 @@ judgment to inspect article quality before reporting the work ready.
 For known profiles, run the local eval after bundle validation:
 
 ```bash
-cd /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-web
+cd <clipsmith-repo>/skills/clipsmith-web
 node scripts/eval.mjs --bundle_dir "<bundle_dir>" --profile "<profile>"
 ```
 

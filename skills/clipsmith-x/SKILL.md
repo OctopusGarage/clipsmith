@@ -22,7 +22,7 @@ metadata:
 **The download logic is fully implemented. Always invoke the existing script — do NOT write a new one.**
 
 ```bash
-cd /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-x
+cd <clipsmith-repo>/skills/clipsmith-x
 npx tsx scripts/run.ts \
   --post-url "<url>" \
   --output-dir "$HOME/Downloads/x"
@@ -37,7 +37,7 @@ optional video, and optional MHTML. Before finalizing a Clipsmith capture job,
 convert that raw folder into a bundle with the shared normalizer:
 
 ```bash
-cd /Users/kingsonwu/programming/OctopusGarage/clipsmith
+cd <clipsmith-repo>
 uv run clipsmith normalize raw x "<raw_dir>" "<bundle_dir>" \
   --source-url "<original_url>" \
   --canonical-url "<canonical_url>" \
@@ -62,7 +62,7 @@ Use the committed eval profile and fixture before changing prompt, extraction,
 media, MHTML, post-type detection, t.co expansion, or normalization behavior:
 
 ```bash
-cd /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-x
+cd <clipsmith-repo>/skills/clipsmith-x
 node scripts/eval.mjs \
   --fixture x-kingson-skill-runtime-text \
   --profile x-kingson-skill-runtime-text

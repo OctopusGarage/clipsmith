@@ -23,7 +23,7 @@ metadata:
 **The download logic is fully implemented. Always invoke the existing script — do NOT write a new one.**
 
 ```bash
-cd /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-xhs
+cd <clipsmith-repo>/skills/clipsmith-xhs
 npx tsx scripts/run.ts \
   --post_url "<url>" \
   --output_dir "$HOME/Downloads/xhs"
@@ -39,7 +39,7 @@ It does not generate a summary by default. Before finalizing a Clipsmith capture
 job, convert the raw folder into a bundle with the shared normalizer:
 
 ```bash
-cd /Users/kingsonwu/programming/OctopusGarage/clipsmith
+cd <clipsmith-repo>
 uv run clipsmith normalize raw xhs "<raw_dir>" "<bundle_dir>" \
   --source-url "<original_url>" \
   --canonical-url "<canonical_url>" \
@@ -56,37 +56,6 @@ The normalizer keeps `post.md`, creates or copies `summary.md`, preserves
 comment images into the final bundle because the bundle validator does not allow
 arbitrary raw assets.
 
-When the user wants this capture in an Alcove/filesystem inbox, the inbox item
-must still contain the post's downloaded images/videos next to the bundle files.
-Use the raw downloader output as sidecar media input:
-
-```bash
-cd /Users/kingsonwu/programming/OctopusGarage/clipsmith
-uv run clipsmith sink inbox "<bundle_dir>" "<workspace>" \
-  --raw-assets-dir "<raw_dir>" \
-  --cleanup-raw-assets \
-  --json
-```
-
-This creates:
-
-```text
-inbox/xhs/<bundle-id>/
-  capture.json
-  post.md
-  summary.md
-  ocr.md
-  assets/
-    001.webp
-    video-001.mp4
-```
-
-Do not report an Alcove inbox capture as complete if downloaded XHS media
-remains only in `~/Downloads/xhs` or another raw directory.
-For an inbox capture, completion also requires the sink JSON to contain
-`"raw_assets_cleanup": "removed"`. Any other result keeps the raw directory
-for diagnosis and must be reported as incomplete cleanup.
-
 Do not call `uv run clipsmith capture finalize` until `capture.json` exists and
 validation succeeds.
 
@@ -96,7 +65,7 @@ Use the committed eval profile and fixture before changing prompt, OCR, or XHS
 capture behavior:
 
 ```bash
-cd /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-xhs
+cd <clipsmith-repo>/skills/clipsmith-xhs
 node scripts/eval.mjs \
   --fixture xhs-skill-long-term-asset \
   --profile xhs-skill-long-term-asset
@@ -217,8 +186,6 @@ A run is successful only when all conditions hold:
 8. When `include_comments=true`, comments are exported under `comments/` with `comments.json` and `comments.md`.
 9. When comment images exist, they are downloaded under `comments/images/`.
 10. URL output and logs use canonical `/explore/<note_id>` form without token query.
-11. Inbox captures report `raw_assets_cleanup: removed`; no duplicate raw post
-    directory remains under `~/Downloads/xhs`.
 
 Comment export failure behavior:
 - If extraction yields zero comments on a post known to have them: retain all downloaded files, return `comments_count=0`, do not throw. Partial coverage of hierarchy/reply linking is acceptable and expected.

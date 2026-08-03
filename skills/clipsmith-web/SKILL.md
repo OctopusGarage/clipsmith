@@ -11,7 +11,7 @@ matches.
 Run the bundled browser extractor first:
 
 ```bash
-cd /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-web
+cd <clipsmith-repo>/skills/clipsmith-web
 npx tsx scripts/run.ts \
   --url "<url>" \
   --output_dir "$HOME/Downloads/clipsmith-web"
@@ -58,7 +58,7 @@ the URL matches a known profile:
 
 ```bash
 uv run clipsmith validate-bundle "<bundle_dir>" --json
-cd /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-web
+cd <clipsmith-repo>/skills/clipsmith-web
 node scripts/eval.mjs --bundle_dir "<bundle_dir>" --profile "<profile>"
 ```
 

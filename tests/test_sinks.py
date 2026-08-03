@@ -90,6 +90,27 @@ def test_inbox_sink_copies_raw_social_media_assets_to_item_assets(tmp_path):
     assert not (target / "assets" / "post.md").exists()
 
 
+def test_inbox_sink_copies_raw_video_audio_sidecars_to_item_assets(tmp_path):
+    raw_dir = tmp_path / "raw-video"
+    raw_dir.mkdir()
+    (raw_dir / "snapshots").mkdir()
+    (raw_dir / "snapshots" / "snapshot_000001.jpg").write_bytes(b"snapshot")
+    (raw_dir / "audio").mkdir()
+    (raw_dir / "audio" / "audio.m4a").write_bytes(b"audio")
+
+    result = InboxSink(tmp_path).write(
+        FIXTURES / "valid-xhs-bundle",
+        raw_assets_dir=raw_dir,
+    )
+
+    target = tmp_path / "inbox" / "xhs" / "20260707-example-xhs"
+    assert result["asset_count"] == "2"
+    assert (
+        target / "assets" / "snapshots" / "snapshot_000001.jpg"
+    ).read_bytes() == b"snapshot"
+    assert (target / "assets" / "audio" / "audio.m4a").read_bytes() == b"audio"
+
+
 def test_inbox_sink_removes_raw_assets_after_verified_copy(tmp_path):
     workspace = tmp_path / "workspace"
     raw_dir = tmp_path / "raw"

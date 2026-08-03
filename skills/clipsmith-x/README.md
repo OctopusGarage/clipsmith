@@ -5,7 +5,7 @@ Browser-automation skill to download X (Twitter) post assets — text, images, a
 ## Quick Start
 
 ```bash
-cd /Users/kingsonwu/programming/OctopusGarage/clipsmith/skills/clipsmith-x
+cd <clipsmith-repo>/skills/clipsmith-x
 npx tsx scripts/run.ts \
   --post-url "https://x.com/<user>/status/<tweet_id>" \
   --output-dir "~/Downloads/x"

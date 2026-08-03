@@ -59,6 +59,12 @@ def test_unknown_url_uses_web_provider():
     assert provider.name == "web"
 
 
+def test_local_video_files_do_not_use_web_provider():
+    provider = ProviderRegistry.default().match("/tmp/demo.mp4")
+
+    assert provider is None
+
+
 def test_custom_wildcard_provider_handles_unknown_urls():
     registry = ProviderRegistry(
         [
