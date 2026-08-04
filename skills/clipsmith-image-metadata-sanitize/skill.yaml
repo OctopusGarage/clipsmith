@@ -1,0 +1,16 @@
+name: clipsmith-image-metadata-sanitize
+description: Strip and verify hidden metadata from a local image file without visible pixel redaction.
+executor: scripts/run.ts
+inputs:
+  input_image:
+    type: string
+    required: true
+    description: Local source image path.
+  output_image:
+    type: string
+    required: true
+    description: Local sanitized image output path.
+  strict:
+    type: boolean
+    required: false
+    description: Exit non-zero when suspicious hidden metadata remains.

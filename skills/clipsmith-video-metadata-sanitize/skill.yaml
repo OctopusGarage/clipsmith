@@ -1,0 +1,20 @@
+name: clipsmith-video-metadata-sanitize
+description: Strip and verify hidden metadata from a local video file without provider or bundle changes.
+executor: scripts/run.ts
+inputs:
+  input_video:
+    type: string
+    required: true
+    description: Local source video path.
+  output_video:
+    type: string
+    required: true
+    description: Local sanitized MP4 output path.
+  mode:
+    type: string
+    required: false
+    description: metadata-only or watermark-resistant. Default metadata-only.
+  strict:
+    type: boolean
+    required: false
+    description: Exit non-zero when suspicious hidden metadata remains.

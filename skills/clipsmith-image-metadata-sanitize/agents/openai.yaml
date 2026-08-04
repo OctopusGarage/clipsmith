@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: Clipsmith Image Metadata Sanitize
+  description: Strip hidden metadata from a local image and verify the result.
+  default_prompt: Use this skill only to remove and verify hidden image metadata. Do not describe it as OCR, blur, masking, mosaic, or visible-content redaction.

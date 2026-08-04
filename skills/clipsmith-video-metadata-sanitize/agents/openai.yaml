@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: Clipsmith Video Metadata Sanitize
+  description: Strip hidden metadata from a local video and verify the result.
+  default_prompt: Use this skill only to remove and verify hidden video metadata. Do not transcribe audio, snapshot video, run OCR, write bundles, or claim guaranteed watermark removal.

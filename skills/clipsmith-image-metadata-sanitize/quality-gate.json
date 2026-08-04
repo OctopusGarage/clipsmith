@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "skill": "clipsmith-image-metadata-sanitize",
+  "capture_kind": "ocr",
+  "raw_evidence": [
+    "sanitized image output",
+    "metadata_report.json with before/after and scan evidence"
+  ],
+  "deterministic_checks": [
+    {
+      "name": "skill regression",
+      "command": "bash skills/clipsmith-image-metadata-sanitize/tests/test_regression.sh"
+    }
+  ],
+  "agent_ai_eval": {
+    "required": true,
+    "reason": "Image metadata sanitization is a media utility skill; agent review confirms it does not claim visible-content redaction or modify capture providers."
+  },
+  "ready_report": [
+    "metadata sanitize status",
+    "hidden metadata scan status",
+    "Provider quality gate: PASS|FAIL"
+  ]
+}

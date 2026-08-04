@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "skill": "clipsmith-video-metadata-sanitize",
+  "capture_kind": "ocr",
+  "raw_evidence": [
+    "sanitized video output",
+    "metadata_report.json with before/after and scan evidence"
+  ],
+  "deterministic_checks": [
+    {
+      "name": "skill regression",
+      "command": "bash skills/clipsmith-video-metadata-sanitize/tests/test_regression.sh"
+    }
+  ],
+  "agent_ai_eval": {
+    "required": true,
+    "reason": "Video metadata sanitization is a media utility skill; agent review confirms it does not claim visible-content redaction, transcription, snapshots, OCR, bundle writing, or provider capture changes."
+  },
+  "ready_report": [
+    "metadata sanitize status",
+    "hidden metadata scan status",
+    "Provider quality gate: PASS|FAIL"
+  ]
+}
