@@ -42,9 +42,12 @@ uv run clipsmith validate-bundle "<bundle_dir>" --json
 
 The normalizer converts `article.md` to bundle `post.md`, creates or copies
 `summary.md`, preserves `ocr.md`/`ocr.txt` as `kind: "ocr-text"` if present,
-and writes `capture.json`. It intentionally does not copy `article.mhtml` or
-downloaded images into the final bundle because the bundle validator does not
-allow arbitrary raw assets.
+moves image files (`.webp`, `.jpg`, `.jpeg`, `.png`, `.gif`) into `assets/`,
+and writes `capture.json` with matching `assets[]` entries (`kind: "image"`).
+`article.mhtml` is not moved into the bundle — it is out of scope. The
+normalizer accepts `raw_dir == bundle_dir` (in-place finalize); when the
+downloader wrote directly to the bundle path, pass the same path for both and
+add `--overwrite`.
 
 Do not call `uv run clipsmith capture finalize` until `capture.json` exists and
 validation succeeds.

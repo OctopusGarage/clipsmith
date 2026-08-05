@@ -26,21 +26,40 @@ metadata:
 cd <clipsmith-repo>/skills/clipsmith-xhs
 npx tsx scripts/run.ts \
   --post_url "<url>" \
-  --output_dir "$HOME/Downloads/xhs"
+  --output_dir "<bundle_dir>" \
+  --flat true
 ```
+
+`<url>` may be a full XHS URL, an `xhslink.cn` short link (e.g. `http://xhslink.cn/o/<id>`), or an `xhslink.com` short link — the script resolves short links via the authenticated browser session before navigating. `<bundle_dir>` should be the final bundle root named `<platform>-<note_id>` (e.g. `inbox/xhs/xhs-6a716ccf000000003303036a/`). With `--flat true`, the script writes directly into `<bundle_dir>` without creating a `<date>-<title>-<note_id>` subfolder, so the next normalization step can run in place.
 
 The sections below (carousel logic, DOM extraction, anti-detection) are **implementation documentation for the script itself**, not instructions for you to re-implement. If the script doesn't exist or can't run, report the error — never substitute with hand-written Playwright code.
 
 ## Clipsmith Bundle Normalization
 
-The copied downloader produces a raw post folder with `post.md`, downloaded
-images, default `ocr.md` for post images, optional video, and optional comments.
-It does not generate a summary by default. Before finalizing a Clipsmith capture
-job, convert the raw folder into a bundle with the shared normalizer:
+The downloader produces a raw post folder with `post.md`, downloaded images
+(plus optional video) at the root, and `ocr.md` for post images. It does not
+generate a summary by default. Convert the raw folder into a final bundle with
+the shared normalizer, then validate.
+
+**In-place flow (preferred when `--flat true` was used):**
 
 ```bash
 cd <clipsmith-repo>
-uv run clipsmith normalize raw xhs "<raw_dir>" "<bundle_dir>" \
+uv run clipsmith normalize raw xhs "<bundle_dir>" "<bundle_dir>" \
+  --source-url "<original_url>" \
+  --canonical-url "<canonical_url>" \
+  --title "<title>" \
+  --author "<author>" \
+  --captured-at "<iso8601_time>" \
+  --overwrite \
+  --json
+uv run clipsmith validate-bundle "<bundle_dir>" --json
+```
+
+**Staged flow (when the downloader wrote to a separate staging dir):**
+
+```bash
+uv run clipsmith normalize raw xhs "<staging_dir>" "<bundle_dir>" \
   --source-url "<original_url>" \
   --canonical-url "<canonical_url>" \
   --title "<title>" \
@@ -50,14 +69,9 @@ uv run clipsmith normalize raw xhs "<raw_dir>" "<bundle_dir>" \
 uv run clipsmith validate-bundle "<bundle_dir>" --json
 ```
 
-The normalizer keeps `post.md`, creates or copies `summary.md`, preserves
-`ocr.md`/`ocr.txt` as `kind: "ocr-text"` when OCR ran, and writes
-`capture.json`. It intentionally does not copy downloaded media, comments, or
-comment images into the final bundle because the bundle validator does not allow
-arbitrary raw assets.
+The normalizer keeps `post.md`, generates `summary.md`, preserves `ocr.md`/`ocr.txt` as `kind: "ocr-text"` when OCR ran, moves image/video files (`.webp`, `.jpg`, `.jpeg`, `.png`, `.gif`, `.mp4`, `.mov`, `.webm`) into `assets/`, and writes `capture.json` with matching `assets[]` entries (`kind: "image"` or `kind: "video"`). When `raw_dir` and `bundle_dir` are the same path and `--overwrite` is set, the normalizer reads the source files into memory first so the in-place rmtree does not lose them. The normalizer does not move comment images or other raw assets — those are out of scope for the bundle.
 
-Do not call `uv run clipsmith capture finalize` until `capture.json` exists and
-validation succeeds.
+Do not call `uv run clipsmith capture finalize` until `capture.json` exists and validation succeeds.
 
 ## Quality Evaluation
 
@@ -177,15 +191,18 @@ XiaoHongShu applies behavioral analysis to detect automation. Violations of thes
 A run is successful only when all conditions hold:
 
 1. A post output folder is created under the specified local directory.
-2. Folder naming format is `<download_date>-<sanitized_title>-<note_id>` (title omitted when empty); `<download_date>` is today's date (YYYYMMDD), not the post's publish time.
+2. Folder naming format:
+   - With `--flat true`: `<output_dir>` is used as-is — caller-controlled. The recommended convention is `<platform>-<note_id>` (e.g. `xhs-6a716ccf000000003303036a`).
+   - Without `--flat`: `<output_dir>/<download_date>-<sanitized_title>-<note_id>` (title omitted when empty); `<download_date>` is today's date (YYYYMMDD), not the post's publish time.
 3. `post.md` is generated in the folder.
-4. Post image files are saved in the folder.
+4. Post image files are saved in the folder (root of the output dir during the download stage; the normalizer moves them under `assets/` during bundle finalization).
 5. `ocr.md` is generated in the folder for downloaded post images.
 6. Post video files are saved when the post contains video.
 7. If multiple video files are generated, they are merged into one and segment files are removed.
 8. When `include_comments=true`, comments are exported under `comments/` with `comments.json` and `comments.md`.
 9. When comment images exist, they are downloaded under `comments/images/`.
 10. URL output and logs use canonical `/explore/<note_id>` form without token query.
+11. After normalization, `assets/` contains all image/video files and `capture.json.assets[]` declares each one with `kind: "image"` or `kind: "video"`. `validate-bundle` reports 0 issues.
 
 Comment export failure behavior:
 - If extraction yields zero comments on a post known to have them: retain all downloaded files, return `comments_count=0`, do not throw. Partial coverage of hierarchy/reply linking is acceptable and expected.
@@ -208,7 +225,7 @@ Comment export failure behavior:
   - if already logged in, skip login wait.
 - Input guidance:
   - after startup/login check, if `post_url` is missing, prompt user to input post URL interactively,
-  - if `output_dir` is missing, prompt user to input target folder (with default).
+  - if `output_dir` is missing, prompt user to input target folder (with default). When the caller has a pre-existing bundle layout (e.g. KB inbox at `inbox/<platform>/<platform>-<note_id>/`), pass `--output_dir <bundle_dir> --flat true` so the script writes into the bundle root directly and the normalizer can finalize in place.
 - If login is required:
   - keep browser open,
   - ask user to complete login manually,

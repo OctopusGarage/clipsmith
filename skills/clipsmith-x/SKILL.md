@@ -49,9 +49,13 @@ uv run clipsmith validate-bundle "<bundle_dir>" --json
 ```
 
 The normalizer keeps `post.md`, creates or copies `summary.md`, preserves
-`ocr.md`/`ocr.txt` as `kind: "ocr-text"` if present, and writes `capture.json`.
-It intentionally does not copy downloaded media or MHTML into the final bundle
-because the bundle validator does not allow arbitrary raw assets.
+`ocr.md`/`ocr.txt` as `kind: "ocr-text"` if present, moves image and video
+files (`.webp`, `.jpg`, `.jpeg`, `.png`, `.gif`, `.mp4`, `.mov`, `.webm`) into
+`assets/`, and writes `capture.json` with matching `assets[]` entries
+(`kind: "image"` or `kind: "video"`). MHTML files are not moved into the
+bundle — they are out of scope. The normalizer accepts `raw_dir == bundle_dir`
+(in-place finalize); when the downloader wrote directly to the bundle path with
+`--flat`/equivalent, pass the same path for both and add `--overwrite`.
 
 Do not call `uv run clipsmith capture finalize` until `capture.json` exists and
 validation succeeds.
