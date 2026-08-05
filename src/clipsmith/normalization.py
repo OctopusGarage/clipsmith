@@ -17,6 +17,11 @@ from clipsmith.errors import BundleError
 ALLOWED_RAW_PROVIDERS = {"web", "wechat", "x", "xhs", "image-ocr"}
 PRIMARY_CONTENT_FILES = ("post.md", "article.md")
 SUMMARY_MAX_CHARS = 480
+IMAGE_ASSET_SUFFIXES = (".webp", ".jpg", ".jpeg", ".png")
+VIDEO_ASSET_SUFFIXES = (".mp4", ".mov", ".webm")
+MEDIA_ASSET_SUFFIXES = IMAGE_ASSET_SUFFIXES + VIDEO_ASSET_SUFFIXES
+MEDIA_ASSET_KIND_BY_SUFFIX = {suffix: "image" for suffix in IMAGE_ASSET_SUFFIXES}
+MEDIA_ASSET_KIND_BY_SUFFIX.update({suffix: "video" for suffix in VIDEO_ASSET_SUFFIXES})
 
 
 @dataclass(frozen=True)
@@ -74,6 +79,15 @@ class RawCaptureNormalizer:
         primary_text = primary.read_text(encoding="utf-8")
         summary = self._summary_text(raw_dir, primary_text, request.title)
         ocr_file = self._ocr_file(raw_dir)
+        ocr_text = (
+            ocr_file.read_text(encoding="utf-8") if ocr_file is not None else None
+        )
+        image_candidates = sorted(
+            entry
+            for entry in raw_dir.iterdir()
+            if entry.is_file() and entry.suffix.lower() in MEDIA_ASSET_SUFFIXES
+        )
+        image_bytes = [entry.read_bytes() for entry in image_candidates]
 
         if request.overwrite and bundle_dir.exists():
             shutil.rmtree(bundle_dir)
@@ -85,9 +99,13 @@ class RawCaptureNormalizer:
             ContentFile(path="summary.md", kind="summary", required_for_review=True),
             ContentFile(path="post.md", kind="post", required_for_review=True),
         ]
-        if ocr_file is not None:
-            ocr_target = "ocr.md" if ocr_file.suffix == ".md" else "ocr.txt"
-            shutil.copyfile(ocr_file, bundle_dir / ocr_target)
+        if ocr_text is not None:
+            ocr_target = (
+                "ocr.md"
+                if (ocr_file is not None and ocr_file.suffix == ".md")
+                else "ocr.txt"
+            )
+            (bundle_dir / ocr_target).write_text(ocr_text, encoding="utf-8")
             content_files.append(
                 ContentFile(
                     path=ocr_target,
@@ -95,6 +113,8 @@ class RawCaptureNormalizer:
                     required_for_review=True,
                 )
             )
+
+        assets = self._write_image_assets(image_candidates, image_bytes, bundle_dir)
 
         bundle = CaptureBundle(
             schema=BUNDLE_SCHEMA,
@@ -107,7 +127,7 @@ class RawCaptureNormalizer:
             published_at=request.published_at,
             captured_at=request.captured_at,
             content_files=content_files,
-            assets=[],
+            assets=assets,
             warnings=[],
             status=request.status,
         )
@@ -146,6 +166,30 @@ class RawCaptureNormalizer:
             if target.is_file():
                 return target
         return None
+
+    def _write_image_assets(
+        self,
+        candidates: list,
+        image_bytes: list,
+        bundle_dir: Path,
+    ) -> list:
+        from clipsmith.bundle import AssetFile
+
+        if not candidates:
+            return []
+        assets_dir = bundle_dir / "assets"
+        assets_dir.mkdir(exist_ok=True)
+        assets: list = []
+        for source, data in zip(candidates, image_bytes):
+            target = assets_dir / source.name
+            target.write_bytes(data)
+            assets.append(
+                AssetFile(
+                    path=f"assets/{source.name}",
+                    kind=MEDIA_ASSET_KIND_BY_SUFFIX[source.suffix.lower()],
+                )
+            )
+        return assets
 
 
 def _first_markdown_heading(text: str) -> str:

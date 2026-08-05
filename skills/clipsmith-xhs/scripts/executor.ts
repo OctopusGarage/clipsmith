@@ -204,8 +204,8 @@ export async function execute(inputs: DownloadPostInputs, context?: ExecutorCont
       postUrlInput = await promptRequired("请输入小红书帖子链接 (--post_url): ");
     }
 
-    // Resolve xhslink.com short URLs by navigating and capturing the redirect destination
-    if (/^https?:\/\/xhslink\.com\//i.test(postUrlInput)) {
+    // Resolve xhslink short URLs by navigating and capturing the redirect destination
+    if (/^https?:\/\/xhslink\.(?:com|cn)\//i.test(postUrlInput)) {
       log(`resolving xhslink short URL: ${postUrlInput}`);
       await page.goto(postUrlInput, { waitUntil: "domcontentloaded", timeout: timeoutMs });
       await page.waitForTimeout(800 + Math.random() * 400);
@@ -308,7 +308,9 @@ export async function execute(inputs: DownloadPostInputs, context?: ExecutorCont
     const folderName = sanitized
       ? `${downloadDate}-${sanitized}-${noteId}`
       : `${downloadDate}-${noteId}`;
-    const noteDir = ensureAbsolutePath(`${outputDir}/${folderName}`);
+    const noteDir = inputs.flat
+      ? outputDir
+      : ensureAbsolutePath(`${outputDir}/${folderName}`);
     await ensureDir(noteDir);
 
     const imageResult = await browseAndCaptureImages(page, snapshot.imageUrls, noteDir, overwrite);

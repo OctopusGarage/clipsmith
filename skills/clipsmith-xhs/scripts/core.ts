@@ -51,6 +51,7 @@ export interface DownloadPostInputs {
   timeout_ms?: number;
   overwrite?: boolean;
   include_comments?: boolean;
+  flat?: boolean;
 }
 
 function getChromeProxyArgs(proxyModeRaw: string | undefined, proxyServerRaw: string | undefined): string[] {

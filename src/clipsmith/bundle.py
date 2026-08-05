@@ -14,6 +14,8 @@ VALID_STATUSES = {"complete", "partial", "failed", "needs_manual_action"}
 CAPTURE_FILE = "capture.json"
 ALLOWED_CONTENT_FILE_PATHS = {"post.md", "summary.md", "ocr.md", "ocr.txt"}
 ALLOWED_OCR_IMAGE_ASSET_KINDS = {"ocr-image"}
+ALLOWED_IMAGE_ASSET_PATH_PREFIX = "assets/"
+ALLOWED_MEDIA_ASSET_KINDS = {"image", "video"}
 ALLOWED_WEB_RAW_ASSET_PATHS_BY_KIND = {
     "web-cleaned-html": {"raw/source.html"},
     "web-rendered-text": {"raw/rendered.txt"},
@@ -345,6 +347,8 @@ class BundleRepository:
     def _asset_file_is_allowed(self, asset: AssetFile) -> bool:
         if asset.kind in ALLOWED_OCR_IMAGE_ASSET_KINDS:
             return True
+        if asset.kind in ALLOWED_MEDIA_ASSET_KINDS:
+            return asset.path.startswith(ALLOWED_IMAGE_ASSET_PATH_PREFIX)
         return asset.path in ALLOWED_WEB_RAW_ASSET_PATHS_BY_KIND.get(asset.kind, set())
 
     def _unsupported_asset_file_message(self, asset: AssetFile) -> str:

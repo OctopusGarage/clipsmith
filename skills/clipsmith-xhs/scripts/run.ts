@@ -92,7 +92,8 @@ function printUsage(): void {
     [--proxy_server http://127.0.0.1:7890] \\
     [--timeout_ms 90000] \\
     [--overwrite true|false] \\
-    [--include_comments true|false]`);
+    [--include_comments true|false] \\
+    [--flat true|false]`);
 }
 
 async function main(): Promise<void> {
@@ -115,6 +116,7 @@ async function main(): Promise<void> {
     timeout_ms: optionalNumber(args, "timeout_ms"),
     overwrite: parseBoolean(args.overwrite, false),
     include_comments: parseBoolean(args.include_comments, false),
+    flat: parseBoolean(args.flat, false),
   };
 
   const result = await execute(inputs);
