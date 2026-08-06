@@ -1,10 +1,11 @@
 import { chromium, type ChromiumBrowser, type Page } from "playwright";
 import { createHash } from "node:crypto";
-import { stat } from "node:fs/promises";
+import { stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
   ensureChromeWithRemoteDebugging,
+  probeCdp,
   captureMhtml,
   saveMhtmlToFile,
   extractMhtmlImages,
@@ -18,12 +19,17 @@ import {
   parseTweetId,
   canonicalizePostUrl,
   extractHandleFromUrl,
-  isLoginRequired,
+  detectLoginState,
   checkForRiskSignals,
-  waitForManualLogin,
   normalizePublishTime,
   cleanupPageForArchive,
+  type TweetSnapshot,
 } from "./core.js";
+import {
+  fetchSyndicationTweet,
+  downloadMedia,
+  stripMetadata,
+} from "./syndication.js";
 
 // ---------------------------------------------------------------------------
 // Post type
@@ -158,62 +164,139 @@ export async function execute(
   const tweetId = parseTweetId(postUrl);
   const handle = extractHandleFromUrl(postUrl);
 
-  // Always try article URL first — browser-side logic (below) falls back to
-  // status URL if the article view never renders (regular tweet, not X Note).
-  // fetch()-based detection is unreliable: X.com is a SPA and returns 200 for
-  // any valid URL regardless of whether the content is an article or a tweet.
-  const pageUrl = postUrl.includes("/article/")
+  // Route the URL by form: explicit /article/ stays an X Note; everything
+  // else (including /i/status/... or /handle/status/...) goes to /status/.
+  // We never guess /article/ from an unknown URL — X Note article IDs are a
+  // separate numeric ID space from tweet snowflake IDs.
+  const wantsArticle = /\/article\//.test(postUrl);
+  const pageUrl = wantsArticle
     ? postUrl
-    : `https://x.com/${handle}/article/${tweetId}`;
+    : `https://x.com/${handle}/status/${tweetId}`;
 
   log(`[executor] post URL: ${postUrl}`);
   log(`[executor] navigating to: ${pageUrl}`);
 
-  // Chrome startup / CDP connection
-  await ensureChromeWithRemoteDebugging(cdpPort, profileDir, log, proxyMode, proxyServer);
+  // Verify CDP before doing any browser work. We never auto-launch Chrome —
+  // if no CDP is listening on the configured port, fall through to syndication
+  // so the user's normal Chrome stays untouched.
+  if (!(await probeCdp(cdpPort))) {
+    log(`[executor] no CDP on :${cdpPort} — falling back to syndication`);
+    return await executeSyndicationOnly({
+      postUrl,
+      tweetId,
+      handle,
+      outputDir: inputs.output_dir,
+      log,
+    });
+  }
 
   const browser = (await chromium.connectOverCDP(
     `http://localhost:${cdpPort}`
   )) as ChromiumBrowser;
   try {
-    // Reuse existing X.com tab — avoids new tab + login state loss
+    // Reuse the user's existing x.com tab if any. Never open a new tab —
+    // that would yank focus from whatever the user was already doing.
     const existingPages = browser.contexts()[0]?.pages() ?? [];
-    const xPage = existingPages.find(
-      (p: Page) => p.url().startsWith("https://x.com/") || p.url().startsWith("https://twitter.com/")
-    );
-    let page = xPage ?? (await browser.newPage());
+    const xPage = existingPages.find((p: Page) => {
+      const u = p.url();
+      return u.startsWith("https://x.com/") || u.startsWith("https://twitter.com/");
+    });
+    let page = xPage ?? existingPages[0] ?? (await browser.newPage());
 
-    // Always navigate to target URL to ensure we load the correct post
+    // Navigate to the canonical post URL. If the existing tab is already
+    // there, we leave it alone to avoid a redundant round-trip.
     if (page.url() !== pageUrl) {
-      await page.goto(pageUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+      try {
+        await page.goto(pageUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+      } catch (err) {
+        log(`[executor] navigation failed: ${(err as Error).message}`);
+      }
     }
 
     await checkForRiskSignals(page);
 
-    if (await isLoginRequired(page)) {
-      log("[executor] login required — waiting for manual login");
-      await waitForManualLogin(page, "Login required to view post");
+    // Login wall check — runs once, fast. If detected, immediately route to
+    // syndication instead of blocking on a manual login prompt. The public
+    // syndication endpoint returns the same metadata for any tweet.
+    const loginState = await detectLoginState(page);
+    if (loginState === "loggedOut") {
+      log("[executor] logged out — falling back to syndication");
+      return await executeSyndicationOnly({
+        postUrl,
+        tweetId,
+        handle,
+        outputDir: inputs.output_dir,
+        log,
+        keepBrowser: browser,
+        page,
+      });
     }
 
-    // Twitter renders content client-side; wait for the tweet/article element to appear
-    const currentUrl = page.url();
-    if (currentUrl.includes("/article/")) {
-      // For X Note article URLs: wait for article view, fallback to status page
+    if (wantsArticle) {
+      // X Note article URLs: wait for the article view; if it never renders
+      // (e.g. page deleted), fall back to /status/.
       try {
         await page.waitForSelector('[data-testid="twitterArticleReadView"]', { timeout: 8000 });
       } catch {
-        // Article URL not found — X redirected to status URL, try that
         const statusUrl = `https://x.com/${handle}/status/${tweetId}`;
         if (page.url() !== statusUrl) {
           await page.goto(statusUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
         }
       }
     }
-    // Wait for tweet article to appear (covers status URL and article→status fallback)
+
+    // Wait for tweet article to appear. If it never does (timeline view or
+    // privacy wall), skip the live Chrome path and ask syndication instead.
     try {
       await page.waitForSelector('article[data-testid="tweet"]', { timeout: 8000 });
     } catch {
-      log("[executor] warning: tweet article element not found — proceeding anyway");
+      log("[executor] tweet article never appeared — trying syndication");
+      try {
+        const snapshot = await fetchSyndicationTweet(tweetId);
+        const noteDir = join(ensureAbsolutePath(inputs.output_dir ?? "~/Downloads/x"), tweetId);
+        await ensureDir(noteDir);
+        const files: string[] = [];
+        const failed: Array<{ url: string; reason: string }> = [];
+        let imageCount = 0;
+        let videoCount = 0;
+        const postType: PostType =
+          snapshot.imageUrls.length > 0 || snapshot.videoUrls.length > 0 ? "withMedia" : "textOnly";
+        if (snapshot.imageUrls.length > 0) {
+          for (let i = 0; i < snapshot.imageUrls.length; i++) {
+            const url = snapshot.imageUrls[i];
+            const filename = `image_${String(i + 1).padStart(2, "0")}.jpg`;
+            const filePath = join(noteDir, filename);
+            try {
+              const { data, ext } = await downloadMedia(
+                `${url}${url.includes("?") ? "&" : "?"}name=orig`
+              );
+              const { data: clean } = await stripMetadata(data, ext);
+              await writeFile(filePath, clean);
+              files.push(filePath);
+              imageCount++;
+            } catch (err) {
+              failed.push({ url, reason: (err as Error).message });
+            }
+          }
+        }
+        return await finalizeCapture({
+          postUrl,
+          tweetId,
+          snapshot,
+          postType,
+          sourceLabel: "syndication",
+          noteDir,
+          files,
+          failed,
+          imageCount,
+          videoCount,
+          articleHtmlFile: undefined,
+        });
+      } catch (err) {
+        throw new Error(
+          `Could not render tweet ${tweetId} via Chrome and syndication failed: ${(err as Error).message}`
+        );
+      }
     }
 
     const postType = await detectPostType(page);
@@ -300,39 +383,19 @@ export async function execute(
 
     // Content deduplication — dedupByContent already dedupes by SHA-256;
     // uniqueFiles gives us the final set of paths to report.
-    const uniqueFiles = await dedupeByContent(
-      files.map((path) => ({ path, url: "" }))
-    );
-
-    // Write post markdown
-    const postMdFile = await writePostMarkdown({
+    return await finalizeCapture({
+      postUrl,
+      tweetId,
+      snapshot,
+      postType,
+      sourceLabel: "live",
       noteDir,
-      sourceUrl: postUrl,
-      title: snapshot.articleTitle ?? "",
-      text: snapshot.text ?? "",
-      publishedAt: normalizePublishTime(snapshot.publishedAt),
-      authorHandle: snapshot.authorHandle,
-      authorName: snapshot.authorName,
-      likeCount: snapshot.likeCount,
-      retweetCount: snapshot.retweetCount,
-      replyCount: snapshot.replyCount,
-    });
-    log(`[executor] post.md written: ${postMdFile}`);
-
-    return {
-      output_dir: ensureAbsolutePath(inputs.output_dir ?? "~/Downloads/x"),
-      note_dir: noteDir,
-      note_id: noteId,
-      post_url: postUrl,
-      publish_time: normalizePublishTime(snapshot.publishedAt),
-      post_md_file: postMdFile,
-      article_html_file: articleHtmlFile,
-      image_count: imageCount,
-      video_count: videoCount,
-      failed_count: failed.length,
+      files,
       failed,
-      files: uniqueFiles.map((f) => f.path),
-    };
+      imageCount,
+      videoCount,
+      articleHtmlFile,
+    });
   } finally {
     if (!keepProcessAlive) {
       // Disconnect Playwright's CDP client so Node can exit. The external Chrome
@@ -340,4 +403,183 @@ export async function execute(
       await browser.close().catch(() => undefined);
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Syndication-only capture — used when the user isn't logged in (or when no
+// Chrome is listening at the CDP port). Returns the same shape as the live
+// capture path but writes images via direct Node fetch + sharp.
+// ---------------------------------------------------------------------------
+async function executeSyndicationOnly(args: {
+  postUrl: string;
+  tweetId: string;
+  /** Reserved for downstream use; kept in signature so callers don't
+   *  need to special-case this branch. */
+  handle: string;
+  outputDir?: string;
+  log: (msg: string) => void;
+  keepBrowser?: ChromiumBrowser;
+  page?: Page;
+}): Promise<DownloadPostResult> {
+  const { postUrl, tweetId, outputDir, log, keepBrowser, page } = args;
+
+  const snapshot = await fetchSyndicationTweet(tweetId);
+  const postType: PostType =
+    snapshot.imageUrls.length > 0 || snapshot.videoUrls.length > 0 ? "withMedia" : "textOnly";
+
+  const noteDir = join(ensureAbsolutePath(outputDir ?? "~/Downloads/x"), tweetId);
+  await ensureDir(noteDir);
+
+  const files: string[] = [];
+  const failed: Array<{ url: string; reason: string }> = [];
+  let imageCount = 0;
+  let videoCount = 0;
+
+  if (snapshot.imageUrls.length > 0) {
+    log(`[executor] downloading ${snapshot.imageUrls.length} image(s) via syndication`);
+    for (let i = 0; i < snapshot.imageUrls.length; i++) {
+      const url = snapshot.imageUrls[i];
+      const filename = `image_${String(i + 1).padStart(2, "0")}.jpg`;
+      const filePath = join(noteDir, filename);
+      try {
+        const { data, ext } = await downloadMedia(
+          `${url}${url.includes("?") ? "&" : "?"}name=orig`
+        );
+        const { data: clean } = await stripMetadata(data, ext);
+        await writeFile(filePath, clean);
+        files.push(filePath);
+        imageCount++;
+        log(`[executor] saved ${filename} (${(clean.length / 1024).toFixed(0)}KB, exif-stripped)`);
+      } catch (err) {
+        failed.push({ url, reason: (err as Error).message });
+        log(`[executor] image failed: ${(err as Error).message}`);
+      }
+    }
+  }
+
+  if (snapshot.videoUrls.length > 0) {
+    log(`[executor] downloading ${snapshot.videoUrls.length} video(s) via syndication`);
+    for (let i = 0; i < snapshot.videoUrls.length; i++) {
+      const url = snapshot.videoUrls[i];
+      const ext = /\.mp4(\?|$)/.test(url) ? "mp4" : "mp4";
+      const filename = `video_${String(i + 1).padStart(2, "0")}.${ext}`;
+      const filePath = join(noteDir, filename);
+      try {
+        const res = await fetch(url, { redirect: "follow" });
+        if (!res.ok) throw new Error(`http ${res.status}`);
+        await writeFile(filePath, Buffer.from(await res.arrayBuffer()));
+        files.push(filePath);
+        videoCount++;
+      } catch (err) {
+        failed.push({ url, reason: (err as Error).message });
+      }
+    }
+  }
+
+  // If the page is sitting on a logged-out redirect, navigate it back home
+  // so we don't leave the user's tab on the login screen.
+  if (page && keepBrowser) {
+    try {
+      if (/\/(login|onboarding|signin|signup|authorization)/.test(page.url())) {
+        await page.goto("about:blank");
+      }
+    } catch {
+      /* best effort */
+    }
+  }
+
+  return finalizeCapture({
+    postUrl,
+    tweetId,
+    snapshot,
+    postType,
+    sourceLabel: "syndication",
+    noteDir,
+    files,
+    failed,
+    imageCount,
+    videoCount,
+    articleHtmlFile: undefined,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Shared finalizer — writes post.md and capture_source.json, returns the
+// DownloadPostResult. Used by both the live Chrome path and the syndication
+// fallback so downstream tooling sees a uniform shape.
+// ---------------------------------------------------------------------------
+async function finalizeCapture(args: {
+  postUrl: string;
+  tweetId: string;
+  snapshot: TweetSnapshot;
+  postType: PostType;
+  sourceLabel: "live" | "syndication";
+  noteDir: string;
+  files: string[];
+  failed: Array<{ url: string; reason: string }>;
+  imageCount: number;
+  videoCount: number;
+  articleHtmlFile: string | undefined;
+}): Promise<DownloadPostResult> {
+  const {
+    postUrl,
+    tweetId,
+    snapshot,
+    sourceLabel,
+    noteDir,
+    files,
+    failed,
+    imageCount,
+    videoCount,
+    articleHtmlFile,
+  } = args;
+
+  const uniqueFiles = await dedupeByContent(files.map((path) => ({ path, url: "" })));
+
+  const postMdFile = await writePostMarkdown({
+    noteDir,
+    sourceUrl: postUrl,
+    title: snapshot.articleTitle ?? "",
+    text: snapshot.text ?? "",
+    publishedAt: normalizePublishTime(snapshot.publishedAt),
+    authorHandle: snapshot.authorHandle,
+    authorName: snapshot.authorName,
+    likeCount: snapshot.likeCount,
+    retweetCount: snapshot.retweetCount,
+    replyCount: snapshot.replyCount,
+  });
+
+  // Sidecar so consumers can tell whether they got a logged-in MHTML or an
+  // anonymous syndication fetch.
+  await writeFile(
+    join(noteDir, "capture_source.json"),
+    JSON.stringify(
+      {
+        source: sourceLabel,
+        captured_at: new Date().toISOString(),
+        tweet_id: tweetId,
+        ...(sourceLabel === "syndication" && {
+          note: "captured anonymously via cdn.syndication.twimg.com; logged-in Chrome would yield additional engagement data and an MHTML archive",
+        }),
+      },
+      null,
+      2
+    ),
+    "utf-8"
+  ).catch(() => undefined);
+
+  return {
+    output_dir: noteDir.replace(/\/[^/]+$/, ""),
+    note_dir: noteDir,
+    note_id: tweetId,
+    post_url: postUrl,
+    publish_time: normalizePublishTime(snapshot.publishedAt),
+    post_md_file: postMdFile,
+    article_html_file: articleHtmlFile,
+    image_count: imageCount,
+    video_count: videoCount,
+    failed_count: failed.length,
+    failed,
+    files: uniqueFiles.map((f) => f.path),
+  };
 }

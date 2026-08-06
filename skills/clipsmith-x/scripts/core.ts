@@ -241,29 +241,54 @@ export async function ensureDir(path: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Utility: Chrome startup
+// Utility: Chrome CDP probe
 // ---------------------------------------------------------------------------
+/**
+ * Verify Chrome DevTools Protocol is responding on `cdpPort`. Returns true if
+ * a CDP endpoint is alive, false otherwise. Never launches Chrome — never
+ * touches the user's normal Chrome instance.
+ */
+export async function probeCdp(cdpPort: string): Promise<boolean> {
+  try {
+    const resp = await fetch(`http://localhost:${cdpPort}/json/version`);
+    return resp.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Optionally launch Chrome with remote debugging. Default behavior is to
+ * probe CDP and fail loudly if no Chrome is listening — this avoids killing
+ * or shadowing the user's existing Chrome instance.
+ *
+ * Pass `autolaunch: true` (e.g. for isolated capture flows) to allow spawning
+ * a new Chrome instance with the given profile.
+ */
 export async function ensureChromeWithRemoteDebugging(
   cdpPort: string,
   profileDir: string,
   log: (msg: string) => void,
-  proxyMode?: string,
-  proxyServer?: string
+  options: { autolaunch?: boolean; proxyMode?: string; proxyServer?: string } = {}
 ): Promise<void> {
-  const absProfile = ensureAbsolutePath(profileDir);
-  await ensureDir(absProfile);
+  const { autolaunch = false, proxyMode, proxyServer } = options;
 
-  try {
-    const resp = await fetch(`http://localhost:${cdpPort}/json/version`);
-    if (resp.ok) {
-      log(`CDP already responding on :${cdpPort}`);
-      return;
-    }
-  } catch {
-    // Not running
+  if (await probeCdp(cdpPort)) {
+    log(`CDP already responding on :${cdpPort}`);
+    return;
   }
 
-  log(`launching Chrome with remote debugging on :${cdpPort}`);
+  if (!autolaunch) {
+    throw new Error(
+      `No Chrome DevTools Protocol listener on http://localhost:${cdpPort}. ` +
+        `Launch Chrome with --remote-debugging-port=${cdpPort} first, or pass ` +
+        `--autolaunch to spawn an isolated instance.`
+    );
+  }
+
+  log(`autolaunch: spawning isolated Chrome on :${cdpPort}`);
+  const absProfile = ensureAbsolutePath(profileDir);
+  await ensureDir(absProfile);
   const args = [
     "-na", "Google Chrome",
     "--args",
@@ -276,15 +301,11 @@ export async function ensureChromeWithRemoteDebugging(
   await wait(3000);
 
   for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const resp = await fetch(`http://localhost:${cdpPort}/json/version`);
-      if (resp.ok) {
-        log(`Chrome ready on :${cdpPort}`);
-        return;
-      }
-    } catch {
-      await wait(2000);
+    if (await probeCdp(cdpPort)) {
+      log(`Chrome ready on :${cdpPort}`);
+      return;
     }
+    await wait(2000);
   }
   throw new Error(`Chrome did not start on CDP port ${cdpPort} after 3 attempts.`);
 }
@@ -303,24 +324,39 @@ export async function checkForRiskSignals(page: Page): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Utility: Login required detection
+// Utility: Login wall detection
 // ---------------------------------------------------------------------------
-export async function isLoginRequired(page: Page): Promise<boolean> {
+export type LoginState = "loggedIn" | "loggedOut";
+
+/**
+ * One-shot login wall check. Returns "loggedOut" the moment X.com presents
+ * any auth UI (login/onboarding/Google sign-in), regardless of whether the
+ * tweet article also happens to be in the DOM. Callers should consult this
+ * right after `page.goto` and pick a capture path before doing more work.
+ */
+export async function detectLoginState(page: Page): Promise<LoginState> {
   const url = page.url();
-  if (url.includes("login") || url.includes("authorization")) return true;
-  // If we have tweet content, user is already logged in (or content is public)
-  const hasTweet = await page.$('article[data-testid="tweet"]');
-  if (hasTweet) return false;
-  const hasArticle = await page.$('[data-testid="twitterArticleReadView"]');
-  if (hasArticle) return false;
-  // No content visible — check if body is a clear login/auth wall (not just nav text)
-  const bodyText = await page.evaluate(() => document.body.innerText);
-  // True login wall: body is mostly empty except auth UI
-  const isLoginWall =
-    bodyText.includes("Log in") &&
-    bodyText.includes("Sign up") &&
-    bodyText.length < 500;
-  return isLoginWall;
+  // Known auth redirect hosts/paths X uses regardless of locale
+  if (/login|onboarding|signin|signup|authorization/i.test(url)) {
+    return "loggedOut";
+  }
+  return page.evaluate(() => {
+    // X auth UI markers — checked by class or testid so they keep working if
+    // copy changes.  `[data-testid="LoginForm"]` is the legacy form;
+    // `[data-testid="google_one_tap_container"]` and `a[href*="/i/flow/signup"]`
+    // are the modern flow redirects.
+    const authMarkers = [
+      '[data-testid="LoginForm"]',
+      '[data-testid="google_one_tap_container"]',
+      '[data-testid="SignupModal"]',
+      'a[href*="/i/flow/signup"]',
+      'a[href*="/login"]',
+    ];
+    for (const sel of authMarkers) {
+      if (document.querySelector(sel)) return "loggedOut";
+    }
+    return "loggedIn";
+  }) as Promise<LoginState>;
 }
 
 export async function waitForManualLogin(
@@ -514,15 +550,33 @@ export async function extractTweetSnapshot(page: Page, tweetId: string): Promise
 
     // Collect tweet text and t.co shortlinks — resolve them from the Node.js side
     // (browser CSP blocks cross-origin fetch in page.evaluate)
+    const textEl = tweetArticle?.querySelector('[data-testid="tweetText"]') as HTMLElement | null;
     const tcoHrefs: string[] = [];
-    const textEl = tweetArticle?.querySelector('[data-testid="tweetText"]');
+    let tweetText = "";
+
     if (textEl) {
+      // Standard path: tweetText element exists, harvest t.co refs from its anchors.
+      tweetText = textEl.textContent?.trim() ?? "";
       Array.from(textEl.querySelectorAll("a")).forEach((a) => {
         const href = a.getAttribute("href") ?? "";
         if (href) tcoHrefs.push(href);
       });
+    } else if (tweetArticle) {
+      // Fallback path (timeline view): text only available via TreeWalker.
+      // Still grab t.co refs from any anchor in the article for later resolution.
+      const walker = document.createTreeWalker(tweetArticle, NodeFilter.SHOW_TEXT, null);
+      const parts: string[] = [];
+      let node: Text | null;
+      while ((node = walker.nextNode() as Text | null)) {
+        const t = (node.textContent ?? "").trim();
+        if (t.length >= 3) parts.push(t);
+      }
+      tweetText = parts.join("\n");
+      tweetArticle.querySelectorAll("a[href*='t.co/']").forEach((a) => {
+        const href = a.getAttribute("href") ?? "";
+        if (href) tcoHrefs.push(href);
+      });
     }
-    const tweetText = textEl?.textContent?.trim() ?? "";
 
     return { tweetId: id, authorHandle: handle, authorName: name, text: tweetText, tcoHrefs, publishedAt, likeCount, retweetCount, replyCount, imageUrls, videoUrls, isArticle: isArticlePage, articleTitle };
   }, tweetId);
@@ -544,30 +598,12 @@ export async function extractTweetSnapshot(page: Page, tweetId: string): Promise
     }
   }
 
-  // If the snapshot text still contains t.co shortlinks as text, replace them
+  // Replace t.co shortlinks with resolved URLs in the final text. Use a
+  // string substitution that works regardless of whether the original DOM
+  // had a `tweetText` container or only a TreeWalker-derived string.
   let text = snapshot.text ?? "";
-  if (Object.keys(tcoMap).length > 0) {
-    // Reconstruct text: scan the original tweet DOM to replace each anchor's
-    // textContent with the resolved URL, then extract full text.
-    const page2 = page;
-    text = await page2.evaluate(
-      (params: { tcoMap: Record<string, string>; tweetId: string }) => {
-        const tweetArticle = document.querySelector(
-          'article[data-testid="tweet"]'
-        ) as HTMLElement | null;
-        const textEl = tweetArticle?.querySelector(
-          '[data-testid="tweetText"]'
-        ) as HTMLElement | null;
-        if (!textEl) return "";
-        Array.from(textEl.querySelectorAll("a")).forEach((a) => {
-          const href = a.getAttribute("href") ?? "";
-          const resolved = params.tcoMap[href];
-          if (resolved) a.textContent = resolved;
-        });
-        return textEl.textContent?.trim() ?? "";
-      },
-      { tcoMap, tweetId }
-    );
+  for (const [short, resolved] of Object.entries(tcoMap)) {
+    if (short !== resolved) text = text.split(short).join(resolved);
   }
 
   return {
