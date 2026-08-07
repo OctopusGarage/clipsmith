@@ -19,6 +19,12 @@ export const DEFAULT_PROFILE_DIR = resolve(homedir(), ".chrome-labali-no-proxy")
 export interface DownloadArticleInputs {
   post_url?: string;
   output_dir?: string;
+  /**
+   * If set, the skill writes the raw capture into a sibling temp dir and then
+   * runs `clipsmith normalize raw wechat` to produce the final bundle at this
+   * path. Saves the caller from running a second normalization step.
+   */
+  bundle_dir?: string;
   profile_dir?: string;
   cdp_port?: string;
   timeout_ms?: number;

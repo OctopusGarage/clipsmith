@@ -70,10 +70,17 @@ function printUsage(): void {
   npx tsx scripts/run.ts \\
     --post_url "https://mp.weixin.qq.com/s/<article_id>" \\
     --output_dir "$HOME/Downloads/wechat" \\
+    [--bundle_dir /path/to/inbox/wechat/wechat-<id>] \\
     [--cdp_port 9223] \\
     [--profile_dir ~/.chrome-labali-no-proxy] \\
     [--timeout_ms 60000] \\
-    [--overwrite true|false]`);
+    [--overwrite true|false]
+
+When --bundle_dir is provided, the skill writes a finalized capture bundle
+(capture.json, post.md, summary.md, assets/) to that exact directory and
+runs clipsmith normalize for you — no second command needed. Without it,
+the skill writes a raw download (article.md + images + article.mhtml) under
+--output_dir, same as before.`);
 }
 
 async function main(): Promise<void> {
@@ -92,6 +99,7 @@ async function main(): Promise<void> {
   const inputs: DownloadArticleInputs = {
     post_url: optionalString(args, "post_url"),
     output_dir: optionalString(args, "output_dir"),
+    bundle_dir: optionalString(args, "bundle_dir") ?? optionalString(args, "bundle-dir"),
     cdp_port: optionalString(args, "cdp_port"),
     profile_dir: optionalString(args, "profile_dir"),
     timeout_ms: optionalNumber(args, "timeout_ms"),

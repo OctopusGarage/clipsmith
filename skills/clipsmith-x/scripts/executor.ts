@@ -1,5 +1,6 @@
 import { chromium, type ChromiumBrowser, type Page } from "playwright";
 import { createHash } from "node:crypto";
+import { spawn } from "node:child_process";
 import { stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -67,6 +68,9 @@ export interface ExecutorContext {
 export interface DownloadPostInputs {
   post_url?: string;
   output_dir?: string;
+  /** Final bundle directory; if set, the skill writes directly there and
+   *  runs `clipsmith normalize raw x` for a one-call ingest. See core.ts. */
+  bundle_dir?: string;
   profile_dir?: string;
   cdp_port?: string;
   timeout_ms?: number;
@@ -164,6 +168,16 @@ export async function execute(
   const tweetId = parseTweetId(postUrl);
   const handle = extractHandleFromUrl(postUrl);
 
+  // Resolve the destination directory. When --bundle-dir is provided the skill
+  // writes directly into that path (the caller has already chosen the dest
+  // name, e.g. inbox/x/x-<handle>-<id>/). Otherwise we fall back to
+  // <output_dir>/<tweetId>/ — the legacy staging layout.
+  const bundleDir = inputs.bundle_dir?.trim()
+    ? await ensureAbsolutePath(inputs.bundle_dir.trim())
+    : undefined;
+  const resolveNoteDir = (): string =>
+    bundleDir ?? join(ensureAbsolutePath(inputs.output_dir ?? "~/Downloads/x"), tweetId);
+
   // Route the URL by form: explicit /article/ stays an X Note; everything
   // else (including /i/status/... or /handle/status/...) goes to /status/.
   // We never guess /article/ from an unknown URL — X Note article IDs are a
@@ -185,8 +199,10 @@ export async function execute(
       postUrl,
       tweetId,
       handle,
-      outputDir: inputs.output_dir,
+      noteDir: resolveNoteDir(),
       log,
+      bundleDir,
+      overwrite,
     });
   }
 
@@ -225,10 +241,12 @@ export async function execute(
         postUrl,
         tweetId,
         handle,
-        outputDir: inputs.output_dir,
+        noteDir: resolveNoteDir(),
         log,
         keepBrowser: browser,
         page,
+        bundleDir,
+        overwrite,
       });
     }
 
@@ -253,7 +271,7 @@ export async function execute(
       log("[executor] tweet article never appeared — trying syndication");
       try {
         const snapshot = await fetchSyndicationTweet(tweetId);
-        const noteDir = join(ensureAbsolutePath(inputs.output_dir ?? "~/Downloads/x"), tweetId);
+        const noteDir = resolveNoteDir();
         await ensureDir(noteDir);
         const files: string[] = [];
         const failed: Array<{ url: string; reason: string }> = [];
@@ -291,6 +309,9 @@ export async function execute(
           imageCount,
           videoCount,
           articleHtmlFile: undefined,
+          bundleDir,
+          overwrite,
+          log,
         });
       } catch (err) {
         throw new Error(
@@ -304,11 +325,7 @@ export async function execute(
 
     const snapshot = await extractTweetSnapshot(page, tweetId);
 
-    const noteId = tweetId;
-    const noteDir = join(
-      ensureAbsolutePath(inputs.output_dir ?? "~/Downloads/x"),
-      noteId
-    );
+    const noteDir = resolveNoteDir();
     await ensureDir(noteDir);
 
     const files: string[] = [];
@@ -381,8 +398,6 @@ export async function execute(
       }
     }
 
-    // Content deduplication — dedupByContent already dedupes by SHA-256;
-    // uniqueFiles gives us the final set of paths to report.
     return await finalizeCapture({
       postUrl,
       tweetId,
@@ -395,6 +410,9 @@ export async function execute(
       imageCount,
       videoCount,
       articleHtmlFile,
+      bundleDir,
+      overwrite,
+      log,
     });
   } finally {
     if (!keepProcessAlive) {
@@ -416,18 +434,21 @@ async function executeSyndicationOnly(args: {
   /** Reserved for downstream use; kept in signature so callers don't
    *  need to special-case this branch. */
   handle: string;
-  outputDir?: string;
+  /** Pre-resolved destination directory — either a bundle_dir or
+   *  <output_dir>/<tweetId>/. */
+  noteDir: string;
   log: (msg: string) => void;
   keepBrowser?: ChromiumBrowser;
   page?: Page;
+  bundleDir?: string;
+  overwrite?: boolean;
 }): Promise<DownloadPostResult> {
-  const { postUrl, tweetId, outputDir, log, keepBrowser, page } = args;
+  const { postUrl, tweetId, noteDir, log, keepBrowser, page, bundleDir, overwrite } = args;
 
   const snapshot = await fetchSyndicationTweet(tweetId);
   const postType: PostType =
     snapshot.imageUrls.length > 0 || snapshot.videoUrls.length > 0 ? "withMedia" : "textOnly";
 
-  const noteDir = join(ensureAbsolutePath(outputDir ?? "~/Downloads/x"), tweetId);
   await ensureDir(noteDir);
 
   const files: string[] = [];
@@ -500,6 +521,9 @@ async function executeSyndicationOnly(args: {
     imageCount,
     videoCount,
     articleHtmlFile: undefined,
+    bundleDir: args.bundleDir,
+    overwrite: args.overwrite,
+    log: args.log,
   });
 }
 
@@ -520,6 +544,11 @@ async function finalizeCapture(args: {
   imageCount: number;
   videoCount: number;
   articleHtmlFile: string | undefined;
+  /** When set, run `clipsmith normalize raw x` on `noteDir` writing into
+   *  this path so the caller gets a finished bundle in one call. */
+  bundleDir?: string;
+  overwrite?: boolean;
+  log?: (msg: string) => void;
 }): Promise<DownloadPostResult> {
   const {
     postUrl,
@@ -532,6 +561,9 @@ async function finalizeCapture(args: {
     imageCount,
     videoCount,
     articleHtmlFile,
+    bundleDir,
+    overwrite,
+    log,
   } = args;
 
   const uniqueFiles = await dedupeByContent(files.map((path) => ({ path, url: "" })));
@@ -568,6 +600,27 @@ async function finalizeCapture(args: {
     "utf-8"
   ).catch(() => undefined);
 
+  // When --bundle-dir is set, run `clipsmith normalize raw x` in-place so the
+  // caller gets a finished bundle (capture.json, summary.md, assets/) without
+  // needing a second command. The normalize step accepts raw_dir == bundle_dir.
+  if (bundleDir) {
+    await runClipsmithNormalize({
+      provider: "x",
+      rawDir: noteDir,
+      bundleDir,
+      sourceUrl: postUrl,
+      canonicalUrl: postUrl,
+      title: snapshot.text.slice(0, 80) || `tweet ${tweetId}`,
+      author: snapshot.authorName
+        ? `${snapshot.authorName}${snapshot.authorHandle ? ` (@${snapshot.authorHandle})` : ""}`
+        : snapshot.authorHandle,
+      publishedAt: normalizePublishTime(snapshot.publishedAt),
+      capturedAt: new Date().toISOString(),
+      overwrite: !!overwrite,
+      log: log ?? console.log,
+    });
+  }
+
   return {
     output_dir: noteDir.replace(/\/[^/]+$/, ""),
     note_dir: noteDir,
@@ -582,4 +635,54 @@ async function finalizeCapture(args: {
     failed,
     files: uniqueFiles.map((f) => f.path),
   };
+}
+
+// ---------------------------------------------------------------------------
+// `clipsmith normalize` runner — invoked when --bundle-dir is set so the skill
+// does the full ingest in one call instead of producing a raw download and
+// leaving callers to run a second command. Same shape as the WeChat skill's
+// helper, parameterized by provider.
+// ---------------------------------------------------------------------------
+async function runClipsmithNormalize(args: {
+  provider: string;
+  rawDir: string;
+  bundleDir: string;
+  sourceUrl: string;
+  canonicalUrl: string;
+  title: string;
+  author: string;
+  publishedAt: string;
+  capturedAt: string;
+  overwrite: boolean;
+  log: (msg: string) => void;
+}): Promise<void> {
+  const cliArgs = [
+    "normalize", "raw",
+    args.provider,
+    args.rawDir,
+    args.bundleDir,
+    "--source-url", args.sourceUrl,
+    "--canonical-url", args.canonicalUrl,
+    "--title", args.title,
+    "--author", args.author,
+    "--published-at", args.publishedAt,
+    "--captured-at", args.capturedAt,
+    "--status", "complete",
+  ];
+  if (args.overwrite) cliArgs.push("--overwrite");
+  cliArgs.push("--json");
+
+  await new Promise<void>((resolveP, rejectP) => {
+    const child = spawn("uv", ["run", "clipsmith", ...cliArgs], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stderr = "";
+    child.stdout.on("data", (chunk) => args.log(`[normalize] ${String(chunk).trim()}`));
+    child.stderr.on("data", (chunk) => { stderr += String(chunk); });
+    child.on("error", rejectP);
+    child.on("close", (code) => {
+      if (code === 0) resolveP();
+      else rejectP(new Error(`clipsmith normalize exited ${code}: ${stderr.trim()}`));
+    });
+  });
 }

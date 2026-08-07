@@ -31,6 +31,8 @@ const { values } = parseArgs({
     'post_url': { type: 'string' },
     'output-dir': { type: 'string', short: 'o' },
     'output_dir': { type: 'string' },
+    'bundle-dir': { type: 'string' },
+    'bundle_dir': { type: 'string' },
     'cdp-port': { type: 'string', short: 'p', default: '9222' },
     'cdp_port': { type: 'string' },
     'profile-dir': { type: 'string', short: 'd' },
@@ -59,7 +61,19 @@ function pickString(primary: ArgKey, fallback: ArgKey): string | undefined {
 }
 
 if (values.help) {
-  console.log(`Usage: npx tsx scripts/run.ts --post-url <url> [--output-dir <dir>] [--overwrite] [--keep-process-alive]`);
+  console.log(`Usage:
+  npx tsx scripts/run.ts --post-url <url> [options]
+
+Options:
+  --post-url <url>           Source X post URL (required)
+  --output-dir <dir>         Staging directory (default ~/Downloads/x). Mutually
+                             exclusive with --bundle-dir.
+  --bundle-dir <dir>         Final bundle directory (e.g. inbox/x/x-<handle>-<id>/).
+                             When set, the skill writes directly to that path and
+                             runs clipsmith normalize for you in one call.
+  --overwrite                Replace existing bundle at --bundle-dir
+  --keep-process-alive       Skip Playwright CDP disconnect (rarely needed)
+  --help                     Show this message`);
   process.exit(0);
 }
 
@@ -69,6 +83,7 @@ const keepProcessAlive =
 const inputs = {
   post_url: pickString('post_url', 'post-url'),
   output_dir: pickString('output_dir', 'output-dir'),
+  bundle_dir: pickString('bundle_dir', 'bundle-dir'),
   cdp_port: pickString('cdp_port', 'cdp-port'),
   profile_dir: pickString('profile_dir', 'profile-dir'),
   timeout_ms: timeoutMs ? parseInt(timeoutMs) : undefined,

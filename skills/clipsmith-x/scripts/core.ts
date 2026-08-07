@@ -62,6 +62,13 @@ const ARTICLE_INTERNAL_CLEANUP_SELECTORS = [
 export interface DownloadPostInputs {
   post_url?: string;
   output_dir?: string;
+  /**
+   * If set, the skill writes the captured bundle directly into this directory
+   * (capture.json, post.md, capture_source.json, assets/) and runs
+   * `clipsmith normalize raw x` to finalize. Saves the caller from running
+   * a second normalization step.
+   */
+  bundle_dir?: string;
   profile_dir?: string;
   cdp_port?: string;
   timeout_ms?: number;
