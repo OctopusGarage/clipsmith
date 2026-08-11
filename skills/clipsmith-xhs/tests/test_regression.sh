@@ -22,6 +22,7 @@ printf "Running regression checks for %s\n" "$ROOT_DIR"
 [[ -f "$RUNNER" ]] || { echo "Missing run.ts"; exit 1; }
 [[ -f "$EXECUTOR" ]] || { echo "Missing executor.ts"; exit 1; }
 [[ -f "$CORE" ]] || { echo "Missing core.ts"; exit 1; }
+[[ -f "$SCRIPTS_DIR/browser-session.ts" ]] || { echo "Missing browser-session.ts"; exit 1; }
 [[ -f "$OCR" ]] || { echo "Missing ocr.ts"; exit 1; }
 [[ -f "$EVAL" ]] || { echo "Missing eval.mjs"; exit 1; }
 [[ -f "$ARCH" ]] || { echo "Missing references/architecture.md"; exit 1; }
@@ -38,11 +39,11 @@ printf "Running regression checks for %s\n" "$ROOT_DIR"
 
 rg -n "Layer Contract|Success Criteria|Operational Mode" "$SKILL_MD" >/dev/null
 rg -n "Layered Boundaries|Execution Model|Download Correctness Standards" "$ARCH" >/dev/null
-rg -n "manual login|post.md|interactively|home page|remote-debugging-port=9223|chrome-labali-no-proxy|no-proxy-server|explore/<note_id>|video|merge" "$PLAN" "$SKILL_MD" "$EXECUTOR" "$CORE" >/dev/null
+rg -n "browser_mode|headless|headed|cdp|manual login|post.md|interactively|home page|remote-debugging-port=9223|chrome-labali-no-proxy|no-proxy-server|explore/<note_id>|video|merge" "$PLAN" "$SKILL_MD" "$EXECUTOR" "$CORE" "$SCRIPTS_DIR/browser-session.ts" >/dev/null
 
-rg -n -- "--post_url|--output_dir|--profile_dir|--cdp_port|--timeout_ms|--overwrite|--include_comments" "$RUNNER" >/dev/null
+rg -n -- "--post_url|--output_dir|--profile_dir|--cdp_port|--browser_mode|--keep_open|--slow_mo_ms|--timeout_ms|--overwrite|--include_comments" "$RUNNER" >/dev/null
 rg -n "请输入小红书帖子链接|请输入本地保存目录" "$EXECUTOR" >/dev/null
-rg -n "connectOverCDP|ensureChromeWithRemoteDebugging|waitForManualLogin|downloadImages|downloadVideos|collectCommentImageUrls|mergeVideosAndCleanup|writePostMarkdown|writeImageOcrMarkdown|extractPostComments|writeCommentsJson|writeCommentsMarkdown|canonicalizePostUrl|normalizePublishTime|xiaohongshu.com" "$EXECUTOR" "$CORE" "$OCR" >/dev/null
+rg -n "openBrowserSession|launchPersistentContext|connectOverCDP|ensureChromeWithRemoteDebugging|waitForManualLogin|downloadImages|downloadVideos|collectCommentImageUrls|mergeVideosAndCleanup|writePostMarkdown|writeImageOcrMarkdown|extractPostComments|writeCommentsJson|writeCommentsMarkdown|canonicalizePostUrl|normalizePublishTime|xiaohongshu.com" "$EXECUTOR" "$CORE" "$OCR" "$SCRIPTS_DIR/browser-session.ts" >/dev/null
 rg -n "xhs-skill-long-term-asset|expected_note_id|required_ocr_phrases|forbid_summary" "$EVALS" "$EVAL" >/dev/null
 rg -n "ocr.md|run_ocr|Do not pass|fixture" "$EVAL_PROMPT" >/dev/null
 rg -n "verdict: PASS|metadata:|media:|ocr:|content:|noise:" "$EVAL_REPORT" >/dev/null

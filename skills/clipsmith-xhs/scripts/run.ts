@@ -88,8 +88,11 @@ function printUsage(): void {
     --output_dir "/absolute/or/relative/output/path" \\
     [--profile_dir ~/.chrome-labali-no-proxy] \\
     [--cdp_port 9223] \\
+    [--browser_mode cdp|headless|headed] \\
     [--proxy_mode none|system|custom] \\
     [--proxy_server http://127.0.0.1:7890] \\
+    [--keep_open true|false] \\
+    [--slow_mo_ms 50] \\
     [--timeout_ms 90000] \\
     [--overwrite true|false] \\
     [--include_comments true|false] \\
@@ -111,8 +114,11 @@ async function main(): Promise<void> {
     output_dir: optionalString(args, "output_dir"),
     profile_dir: optionalString(args, "profile_dir"),
     cdp_port: optionalString(args, "cdp_port"),
+    browser_mode: optionalString(args, "browser_mode") ?? optionalString(args, "browser-mode"),
     proxy_mode: optionalString(args, "proxy_mode"),
     proxy_server: optionalString(args, "proxy_server"),
+    keep_open: parseBoolean(args["keep_open"] ?? args["keep-open"], false),
+    slow_mo_ms: optionalNumber(args, "slow_mo_ms") ?? optionalNumber(args, "slow-mo-ms"),
     timeout_ms: optionalNumber(args, "timeout_ms"),
     overwrite: parseBoolean(args.overwrite, false),
     include_comments: parseBoolean(args.include_comments, false),

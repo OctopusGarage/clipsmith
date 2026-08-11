@@ -31,10 +31,13 @@ npx tsx scripts/run.ts \
 ```
 
 可选参数：
+- `--browser_mode cdp|headless|headed`（稳定默认值是 `cdp`）
 - `--profile_dir ~/.chrome-labali-no-proxy`
 - `--cdp_port 9223`
 - `--proxy_mode none|system|custom`
 - `--proxy_server http://127.0.0.1:7890`
+- `--keep_open true|false`（仅用于 headed 调试）
+- `--slow_mo_ms 50`
 - `--timeout_ms 90000`
 - `--overwrite true|false`
 - `--include_comments true|false`
@@ -43,8 +46,8 @@ npx tsx scripts/run.ts \
 
 ## 3) 执行流程
 
-1. 通过 CDP 启动/复用 Chrome（`open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir=... --no-proxy-server`）。
-2. 通过 CDP 建立连接。
+1. 默认通过 CDP 启动/复用 Chrome（`open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir=... --no-proxy-server`）；实验模式可启动短生命周期 `headless` 或 `headed` Playwright persistent context。
+2. 连接到选定的浏览器 context。
 3. 打开小红书首页并检查登录状态。
 4. 如未登录，暂停等待手动登录。
 5. 打开目标帖子链接。
@@ -60,8 +63,9 @@ npx tsx scripts/run.ts \
 ## 4) 技术实现方法
 
 执行技术栈：
-- 浏览器启动：系统命令（`open -na "Google Chrome" ... --remote-debugging-port=<port>`）
-- CDP 通信：Playwright `connectOverCDP`
+- 稳定浏览器启动：系统命令（`open -na "Google Chrome" ... --remote-debugging-port=<port>`）
+- 实验短生命周期启动：Playwright `launchPersistentContext`
+- CDP 通信：`--browser_mode cdp` 下使用 Playwright `connectOverCDP`
 - 数据提取：
   - 主路径：`window.__INITIAL_STATE__.note.noteDetailMap`
   - 兜底路径：固定 DOM selector + 媒体 URL 过滤规则

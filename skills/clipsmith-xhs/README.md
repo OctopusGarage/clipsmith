@@ -32,10 +32,13 @@ npx tsx scripts/run.ts \
 ```
 
 Optional flags:
+- `--browser_mode cdp|headless|headed` (`cdp` is the stable default)
 - `--profile_dir ~/.chrome-labali-no-proxy`
 - `--cdp_port 9223`
 - `--proxy_mode none|system|custom`
 - `--proxy_server http://127.0.0.1:7890`
+- `--keep_open true|false` (headed mode only)
+- `--slow_mo_ms 50`
 - `--timeout_ms 90000`
 - `--overwrite true|false`
 - `--include_comments true|false`
@@ -44,8 +47,8 @@ If `post_url` or `output_dir` is omitted, the script prompts interactively.
 
 ## 3) Runtime Flow
 
-1. Launch/reuse Chrome with CDP (`open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir=... --no-proxy-server`).
-2. Connect via CDP.
+1. Default: launch/reuse Chrome with CDP (`open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir=... --no-proxy-server`). Experimental: launch a short-lived `headless` or `headed` Playwright persistent context.
+2. Connect to the selected browser context.
 3. Open Xiaohongshu home and check login state.
 4. If login is required, pause and wait for manual login.
 5. Open target post URL.
@@ -62,8 +65,9 @@ If `post_url` or `output_dir` is omitted, the script prompts interactively.
 ## 4) Technical Method
 
 Execution stack:
-- Browser startup: system command (`open -na "Google Chrome" ... --remote-debugging-port=<port>`)
-- CDP communication: Playwright `connectOverCDP`
+- Stable browser startup: system command (`open -na "Google Chrome" ... --remote-debugging-port=<port>`)
+- Experimental short-lived startup: Playwright `launchPersistentContext`
+- CDP communication: Playwright `connectOverCDP` in `--browser_mode cdp`
 - Data extraction:
   - Primary: `window.__INITIAL_STATE__.note.noteDetailMap`
   - Fallback: fixed DOM selectors and filtered media URL heuristics

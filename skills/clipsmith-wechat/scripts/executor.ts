@@ -1,4 +1,3 @@
-import { chromium } from "playwright";
 import { createInterface } from "node:readline/promises";
 import { spawn } from "node:child_process";
 import {
@@ -6,7 +5,6 @@ import {
   DEFAULT_PROFILE_DIR,
   parseArticleId,
   canonicalizeArticleUrl,
-  ensureChromeWithRemoteDebugging,
   ensureAbsolutePath,
   ensureDir,
   captureMhtml,
@@ -19,6 +17,7 @@ import {
   type DownloadArticleInputs,
   type DownloadArticleResult,
 } from "./core.js";
+import { defaultBrowserMode, openBrowserSession } from "./browser-session.js";
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -83,149 +82,165 @@ export async function execute(
   log(`[wechat] output dir: ${outputDir}`);
   if (bundleDir) log(`[wechat] bundle dir: ${bundleDir}`);
 
-  // --- Start Chrome ---
-  await ensureChromeWithRemoteDebugging(cdpPort, profileDir);
-
-  // --- Connect via CDP ---
-  const browser = await chromium.connectOverCDP(`http://localhost:${cdpPort}`);
-  const contexts = browser.contexts();
-  const browserCtx = contexts[0] ?? (await browser.newContext());
-
-  // Find or open WeChat tab
-  let page = browserCtx.pages().find((p) => {
-    try { const h = new URL(p.url()).hostname; return h.endsWith(".mp.weixin.qq.com") || h === "mp.weixin.qq.com"; } catch { return false; }
-  }) ?? null;
-  if (!page) {
-    page = await browserCtx.newPage();
-    log("[wechat] opened new tab");
-  } else {
-    log("[wechat] reusing existing WeChat tab");
+  const browserMode = defaultBrowserMode(inputs.browser_mode);
+  if (browserMode !== "cdp") {
+    await ensureDir(profileDir);
   }
+  const session = await openBrowserSession({
+    mode: browserMode,
+    profileDir,
+    cdpPort,
+    keepOpen: inputs.keep_open ?? false,
+    slowMo: inputs.slow_mo_ms,
+    log,
+  });
 
-  // Navigate to article
-  log(`[wechat] navigating to ${postUrl}`);
-  await page.goto(postUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
-  await page.waitForTimeout(1500 + Math.random() * 1000);
+  try {
+    const browserCtx = session.context;
 
-  // --- Extract article snapshot ---
-  log("[wechat] extracting article content...");
-  const snapshot = await extractArticleSnapshot(page);
-
-  log(`[wechat] title: ${snapshot.title}`);
-  log(`[wechat] account: ${snapshot.accountName}`);
-  log(`[wechat] published: ${snapshot.publishedAt}`);
-  log(`[wechat] images found: ${snapshot.imageUrls.length}`);
-
-  // --- Resolve article ID ---
-  const articleId = parseArticleId(postUrl);
-
-  // --- Build output folder ---
-  // Three modes:
-  //   (1) --bundle-dir was passed: write into that exact path as a raw dir;
-  //       `clipsmith normalize raw` will rewrite it in-place at the end. Skip
-  //       the YYYYMMDD-prefix wrapping, because the caller already chose the
-  //       destination name (e.g. inbox/wechat/wechat-<id>/).
-  //   (2) Default: write into <output_dir>/YYYYMMDD-<title>-<id>/.
-  //   (3) Output dir = bundle dir: same as (2); caller gets a raw download.
-  // In bundle mode the MHTML is dropped (out of bundle scope per normalizer).
-  const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  const publishTime = normalizePublishTime(snapshot.publishedAt) || "unknown";
-
-  let articleDir: string;
-  let mhtmlEnabled: boolean;
-  if (bundleDir) {
-    articleDir = bundleDir;
-    mhtmlEnabled = false; // bundles don't carry MHTML
-  } else {
-    const folderName = buildFolderName(today, snapshot.title, articleId);
-    articleDir = resolve(outputDir, folderName);
-    mhtmlEnabled = true;
-  }
-  await ensureDir(articleDir);
-  log(`[wechat] output folder: ${articleDir}`);
-
-  // --- Download images ---
-  const { saved: imageFiles, failed } = await downloadImages(
-    page,
-    snapshot.imageUrls,
-    articleDir,
-    overwrite
-  );
-
-  // --- Capture MHTML (raw mode only; bundles don't carry MHTML) ---
-  let mhtmlPath: string | undefined;
-  if (mhtmlEnabled) {
-    log("[wechat] scrolling to trigger lazy-loaded images...");
-    await triggerLazyImages(page);
-    log("[wechat] capturing MHTML...");
-    mhtmlPath = resolve(articleDir, "article.mhtml");
-    try {
-      const mhtmlContent = await captureMhtml(page);
-      await writeFile(mhtmlPath, mhtmlContent, "utf-8");
-      log(`[wechat] wrote ${mhtmlPath}`);
-    } catch (err) {
-      log(`[wechat] MHTML capture failed (non-fatal): ${err instanceof Error ? err.message : err}`);
-      mhtmlPath = undefined;
+    // Find or open WeChat tab
+    let page = browserCtx.pages().find((p) => {
+      try {
+        const h = new URL(p.url()).hostname;
+        return h.endsWith(".mp.weixin.qq.com") || h === "mp.weixin.qq.com";
+      } catch {
+        return false;
+      }
+    }) ?? null;
+    if (!page) {
+      page = await browserCtx.newPage();
+      log("[wechat] opened new tab");
+    } else {
+      log("[wechat] reusing existing WeChat tab");
     }
-  }
 
-  // --- Write article.md ---
-  const mdPath = resolve(articleDir, "article.md");
-  await writeArticleMarkdown(mdPath, snapshot, canonicalizeArticleUrl(postUrl), imageFiles, articleDir);
-  log(`[wechat] wrote ${mdPath}`);
+    // Navigate to article
+    log(`[wechat] navigating to ${postUrl}`);
+    await page.goto(postUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+    await page.waitForTimeout(1500 + Math.random() * 1000);
 
-  const mhtmlExists = mhtmlPath
-    ? await import("node:fs/promises").then((fs) =>
-        fs.access(mhtmlPath!).then(() => true).catch(() => false)
-      )
-    : false;
-  const files = [
-    ...(mhtmlExists && mhtmlPath ? [mhtmlPath] : []),
-    mdPath,
-    ...imageFiles.map((f) => f.path),
-  ];
+    // --- Extract article snapshot ---
+    log("[wechat] extracting article content...");
+    const snapshot = await extractArticleSnapshot(page);
 
-  // --- Normalize raw → bundle ---
-  // When --bundle-dir is set, run `clipsmith normalize raw wechat` to convert
-  // this raw folder into a proper capture bundle (capture.json, post.md,
-  // summary.md, assets/). The normalize step accepts raw_dir == bundle_dir.
-  if (bundleDir) {
-    try {
-      await runClipsmithNormalize({
-        provider: "wechat",
-        rawDir: articleDir,
-        bundleDir,
-        sourceUrl: postUrl,
-        canonicalUrl: canonicalizeArticleUrl(postUrl),
-        title: snapshot.title,
-        author: snapshot.accountName
-          ? `${snapshot.accountName}${snapshot.author && snapshot.author !== snapshot.accountName ? ` / ${snapshot.author}` : ""}`
-          : snapshot.author,
-        publishedAt: normalizePublishTime(snapshot.publishedAt),
-        capturedAt: new Date().toISOString(),
-        overwrite,
-        log,
-      });
-      log(`[wechat] bundle written → ${bundleDir}`);
-    } catch (err) {
-      log(`[wechat] normalize failed: ${err instanceof Error ? err.message : err}`);
-      throw err;
+    log(`[wechat] title: ${snapshot.title}`);
+    log(`[wechat] account: ${snapshot.accountName}`);
+    log(`[wechat] published: ${snapshot.publishedAt}`);
+    log(`[wechat] images found: ${snapshot.imageUrls.length}`);
+
+    // --- Resolve article ID ---
+    const articleId = parseArticleId(postUrl);
+
+    // --- Build output folder ---
+    // Three modes:
+    //   (1) --bundle-dir was passed: write into that exact path as a raw dir;
+    //       `clipsmith normalize raw` will rewrite it in-place at the end. Skip
+    //       the YYYYMMDD-prefix wrapping, because the caller already chose the
+    //       destination name (e.g. inbox/wechat/wechat-<id>/).
+    //   (2) Default: write into <output_dir>/YYYYMMDD-<title>-<id>/.
+    //   (3) Output dir = bundle dir: same as (2); caller gets a raw download.
+    // In bundle mode the MHTML is dropped (out of bundle scope per normalizer).
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const publishTime = normalizePublishTime(snapshot.publishedAt) || "unknown";
+
+    let articleDir: string;
+    let mhtmlEnabled: boolean;
+    if (bundleDir) {
+      articleDir = bundleDir;
+      mhtmlEnabled = false; // bundles don't carry MHTML
+    } else {
+      const folderName = buildFolderName(today, snapshot.title, articleId);
+      articleDir = resolve(outputDir, folderName);
+      mhtmlEnabled = true;
     }
-  }
+    await ensureDir(articleDir);
+    log(`[wechat] output folder: ${articleDir}`);
 
-  return {
-    output_dir: outputDir,
-    article_dir: articleDir,
-    article_id: articleId,
-    article_url: postUrl,
-    publish_time: publishTime,
-    article_md_file: mdPath,
-    article_mhtml_file: mhtmlExists ? mhtmlPath : undefined,
-    image_count: imageFiles.length,
-    failed_count: failed.length,
-    failed,
-    files,
-  };
+    // --- Download images ---
+    const { saved: imageFiles, failed } = await downloadImages(
+      page,
+      snapshot.imageUrls,
+      articleDir,
+      overwrite
+    );
+
+    // --- Capture MHTML (raw mode only; bundles don't carry MHTML) ---
+    let mhtmlPath: string | undefined;
+    if (mhtmlEnabled) {
+      log("[wechat] scrolling to trigger lazy-loaded images...");
+      await triggerLazyImages(page);
+      log("[wechat] capturing MHTML...");
+      mhtmlPath = resolve(articleDir, "article.mhtml");
+      try {
+        const mhtmlContent = await captureMhtml(page);
+        await writeFile(mhtmlPath, mhtmlContent, "utf-8");
+        log(`[wechat] wrote ${mhtmlPath}`);
+      } catch (err) {
+        log(`[wechat] MHTML capture failed (non-fatal): ${err instanceof Error ? err.message : err}`);
+        mhtmlPath = undefined;
+      }
+    }
+
+    // --- Write article.md ---
+    const mdPath = resolve(articleDir, "article.md");
+    await writeArticleMarkdown(mdPath, snapshot, canonicalizeArticleUrl(postUrl), imageFiles, articleDir);
+    log(`[wechat] wrote ${mdPath}`);
+
+    const mhtmlExists = mhtmlPath
+      ? await import("node:fs/promises").then((fs) =>
+          fs.access(mhtmlPath!).then(() => true).catch(() => false)
+        )
+      : false;
+    const files = [
+      ...(mhtmlExists && mhtmlPath ? [mhtmlPath] : []),
+      mdPath,
+      ...imageFiles.map((f) => f.path),
+    ];
+
+    // --- Normalize raw → bundle ---
+    // When --bundle-dir is set, run `clipsmith normalize raw wechat` to convert
+    // this raw folder into a proper capture bundle (capture.json, post.md,
+    // summary.md, assets/). The normalize step accepts raw_dir == bundle_dir.
+    if (bundleDir) {
+      try {
+        await runClipsmithNormalize({
+          provider: "wechat",
+          rawDir: articleDir,
+          bundleDir,
+          sourceUrl: postUrl,
+          canonicalUrl: canonicalizeArticleUrl(postUrl),
+          title: snapshot.title,
+          author: snapshot.accountName
+            ? `${snapshot.accountName}${snapshot.author && snapshot.author !== snapshot.accountName ? ` / ${snapshot.author}` : ""}`
+            : snapshot.author,
+          publishedAt: normalizePublishTime(snapshot.publishedAt),
+          capturedAt: new Date().toISOString(),
+          overwrite,
+          log,
+        });
+        log(`[wechat] bundle written → ${bundleDir}`);
+      } catch (err) {
+        log(`[wechat] normalize failed: ${err instanceof Error ? err.message : err}`);
+        throw err;
+      }
+    }
+
+    return {
+      output_dir: outputDir,
+      article_dir: articleDir,
+      article_id: articleId,
+      article_url: postUrl,
+      publish_time: publishTime,
+      article_md_file: mdPath,
+      article_mhtml_file: mhtmlExists ? mhtmlPath : undefined,
+      image_count: imageFiles.length,
+      failed_count: failed.length,
+      failed,
+      files,
+    };
+  } finally {
+    await session.close();
+  }
 }
 
 // ---------------------------------------------------------------------------

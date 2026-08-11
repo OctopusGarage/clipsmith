@@ -1,6 +1,6 @@
 ---
 name: clipsmith-wechat
-description: Browser-only automation skill to export a WeChat public account article into a local folder, including article.mhtml, article.md, and all embedded images.
+description: Short-lived browser automation skill to export a WeChat public account article into a local folder, including article.mhtml, article.md, and all embedded images.
 allowed-tools: "Bash(npx:*), Bash(node:*)"
 ---
 
@@ -82,9 +82,12 @@ the source repo. Packaged skill installs may omit eval fixtures and baselines.
 
 ## Required Constraints
 
-- Use browser automation only (Playwright over CDP).
-- Reuse authenticated Chrome session via CDP startup:
-  `open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir="$HOME/.chrome-labali-no-proxy" --no-proxy-server`
+- Use browser automation only. Default mode is a short-lived non-visual Chromium
+  context that closes after capture.
+- Use `--browser_mode headed --keep_open true` when a visible browser is needed
+  for inspection, login, or debugging.
+- Use `--browser_mode cdp --cdp_port 9223` only when attaching to an existing
+  manual Chrome session is required.
 - Extract article content from WeChat DOM: title, account name, author, publish time, content text, images.
 - Images are lazy-loaded via `data-src` — always prefer `data-src` over `src`.
 - Download only images from `mmbiz.qpic.cn` (skip avatars from `mmbiz.qlogo.cn`).
@@ -114,7 +117,7 @@ WeChat articles are mostly public pages. Login is only required for member-only 
 ## NEVER
 
 - **Never write a custom Playwright/Node.js script** — the existing `scripts/run.ts` handles all extraction.
-- **Never launch a new Chrome instance if CDP is already responding on port 9223.**
+- **Never use the long-lived CDP Chrome as the default path** — CDP is an explicit manual/debug mode.
 - **Never take over a non-WeChat browser tab** — find a WeChat tab to reuse, or open a new tab.
 - **Never use `src` alone for WeChat image extraction** — WeChat lazy-loads via `data-src`; missing this yields 0 images.
 - **Never retry automatically after a login wall** — pause and prompt the user to log in.
@@ -135,9 +138,14 @@ A run is successful only when all conditions hold:
 ## Operational Mode
 
 - Startup:
-  - Check if CDP is responding: `curl -s http://localhost:9223/json/version`
-  - If not → auto-launch Chrome (no user prompt needed), wait 3s, verify
-  - If already running → reuse
+  - Default: launch a short-lived non-visual Chromium context with
+    `--browser_mode headless`; close it after capture.
+  - Visible debugging: launch a short-lived headed Chromium context with
+    `--browser_mode headed`; pass `--keep_open true` to inspect the page after
+    the run.
+  - Manual session: attach to existing Chrome with
+    `--browser_mode cdp --cdp_port 9223`; this disconnects after capture but
+    does not shut down the external Chrome process.
 - Tab management:
   - Find existing WeChat tab → reuse (navigate to article URL)
   - No WeChat tab → open new tab

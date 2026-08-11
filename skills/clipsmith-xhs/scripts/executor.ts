@@ -1,4 +1,3 @@
-import { chromium } from "playwright";
 import { createInterface } from "node:readline/promises";
 import { readFile, stat, unlink } from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -34,6 +33,7 @@ import {
   type DownloadPostInputs,
   type DownloadPostResult,
 } from "./core";
+import { defaultBrowserMode, openBrowserSession } from "./browser-session";
 import { writeImageOcrMarkdown } from "./ocr";
 
 export interface ExecutorContext {
@@ -179,14 +179,32 @@ export async function execute(inputs: DownloadPostInputs, context?: ExecutorCont
   const timeoutMs = toTimeout(inputs.timeout_ms);
   const overwrite = inputs.overwrite ?? false;
   const includeComments = inputs.include_comments ?? false;
-  await ensureDir(profileDir);
-
-  await ensureChromeWithRemoteDebugging(cdpPort, profileDir, log, inputs.proxy_mode, inputs.proxy_server);
-  log(`connecting over CDP on :${cdpPort}`);
-  const browser = await chromium.connectOverCDP(`http://127.0.0.1:${cdpPort}`);
+  const browserMode = defaultBrowserMode(inputs.browser_mode);
+  if (browserMode !== "cdp") {
+    await ensureDir(profileDir);
+  }
+  const session = await openBrowserSession({
+    mode: browserMode,
+    profileDir,
+    cdpPort,
+    keepOpen: inputs.keep_open ?? false,
+    proxyMode: inputs.proxy_mode,
+    proxyServer: inputs.proxy_server,
+    slowMo: inputs.slow_mo_ms,
+    log,
+    ensureCdpReady: async () => {
+      await ensureChromeWithRemoteDebugging(
+        cdpPort,
+        profileDir,
+        log,
+        inputs.proxy_mode,
+        inputs.proxy_server
+      );
+    },
+  });
 
   try {
-    const browserContext = browser.contexts()[0] ?? (await browser.newContext());
+    const browserContext = session.context;
     const existingPages = browserContext.pages();
     const xhsPage = existingPages.find((p) => {
       try { return new URL(p.url()).hostname.endsWith(".xiaohongshu.com") || new URL(p.url()).hostname === "xiaohongshu.com"; } catch { return false; }
@@ -418,6 +436,6 @@ export async function execute(inputs: DownloadPostInputs, context?: ExecutorCont
     );
     return result;
   } finally {
-    await browser.close().catch(() => undefined);
+    await session.close();
   }
 }

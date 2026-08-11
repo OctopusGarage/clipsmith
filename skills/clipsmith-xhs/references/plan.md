@@ -6,7 +6,10 @@ When a failure or ambiguous situation is encountered, use this table to decide t
 
 | Situation | Action |
 |-----------|--------|
-| CDP not responding on port 9223 | **Auto-launch Chrome immediately** (no user confirmation needed): `open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir="$HOME/.chrome-labali-no-proxy" --no-proxy-server`; sleep 3s; verify `curl http://localhost:9223/json/version`; retry once if still failing |
+| Default mode | Use `--browser_mode cdp`; attach to the existing authenticated Chrome session on port 9223 |
+| CDP not responding on port 9223 in default mode | **Auto-launch Chrome immediately** (no user confirmation needed): `open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir="$HOME/.chrome-labali-no-proxy" --no-proxy-server`; sleep 3s; verify `curl http://localhost:9223/json/version`; retry once if still failing |
+| Non-visual experiment requested | Use `--browser_mode headless`; launch a short-lived persistent context and close it after capture |
+| Visible experiment/debug requested | Use `--browser_mode headed`; close after capture unless `--keep_open true` is passed |
 | Login wall detected before post open | Prompt user to log in; do not proceed until confirmed |
 | Login wall detected after post open | Pause extraction; prompt user; retry in the same session |
 | Image count 0 after extraction | Check if xsec_token was preserved in navigation URL; reload with full URL |

@@ -23,6 +23,7 @@ printf "Running regression checks for %s\n" "$ROOT_DIR"
 [[ -f "$EXECUTOR" ]] || { echo "Missing executor.ts"; exit 1; }
 [[ -f "$CORE" ]] || { echo "Missing core.ts"; exit 1; }
 [[ -f "$EVAL" ]] || { echo "Missing eval.mjs"; exit 1; }
+[[ -f "$SCRIPTS_DIR/browser-session.ts" ]] || { echo "Missing browser-session.ts"; exit 1; }
 [[ -f "$PLAN" ]] || { echo "Missing references/plan.md"; exit 1; }
 [[ -f "$SKILL_MD" ]] || { echo "Missing SKILL.md"; exit 1; }
 [[ -f "$SKILL_YAML" ]] || { echo "Missing skill.yaml"; exit 1; }
@@ -37,8 +38,8 @@ printf "Running regression checks for %s\n" "$ROOT_DIR"
 
 rg -n "MANDATORY|NEVER WRITE YOUR OWN SCRIPT|Quality Evaluation|Success Criteria" "$SKILL_MD" >/dev/null
 rg -n "data-src|mmbiz.qpic.cn|article.md|article.mhtml|manual login" "$PLAN" "$SKILL_MD" "$CORE" "$EXECUTOR" >/dev/null
-rg -n -- "--post_url|--output_dir|--cdp_port|--profile_dir|--timeout_ms|--overwrite" "$RUNNER" >/dev/null
-rg -n "connectOverCDP|extractArticleSnapshot|downloadImages|triggerLazyImages|captureMhtml|writeArticleMarkdown|mp.weixin.qq.com" "$EXECUTOR" "$CORE" >/dev/null
+rg -n -- "--post_url|--output_dir|--browser_mode|--keep_open|--slow_mo_ms|--cdp_port|--profile_dir|--timeout_ms|--overwrite" "$RUNNER" >/dev/null
+rg -n "headless|headed|cdp|openBrowserSession|launchPersistentContext|connectOverCDP|extractArticleSnapshot|downloadImages|triggerLazyImages|captureMhtml|writeArticleMarkdown|mp.weixin.qq.com" "$EXECUTOR" "$CORE" "$SCRIPTS_DIR/browser-session.ts" >/dev/null
 rg -n "$EVAL_PROFILE|expected_article_id|required_phrases|fixture_min_article_chars|require_normalized_post|min_normalized_headings|max_normalized_line_chars" "$EVALS" "$EVAL" >/dev/null
 rg -n "article.md|post.md|article.mhtml|deterministic eval|Do not pass|fixture" "$EVAL_PROMPT" >/dev/null
 rg -n "article.md|post.md|preserve|headings|Do not summarize away" "$NORMALIZE_PROMPT" >/dev/null

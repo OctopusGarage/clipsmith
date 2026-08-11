@@ -11,7 +11,7 @@ license: MIT
 allowed-tools: "Bash(npx:*), Bash(node:*), Bash(pnpm:*)"
 metadata:
   pattern: pipeline
-  compatibility: "macOS / Linux; requires Chrome with remote-debugging enabled (port 9223), profile ~/.chrome-labali-no-proxy, and authenticated XiaoHongShu session; Node.js ≥ 20 + tsx"
+  compatibility: "macOS / Linux; stable mode uses Chrome with remote-debugging enabled (port 9223), profile ~/.chrome-labali-no-proxy, and authenticated XiaoHongShu session; experimental headless/headed modes use short-lived Playwright persistent contexts; Node.js ≥ 20 + tsx"
 ---
 
 # clipsmith-xhs
@@ -103,8 +103,12 @@ fixture eval must not depend on network access.
 
 - Use browser automation only.
 - Do not use Xiaohongshu private APIs.
-- Reuse manual-login session via unified Chrome CDP startup:
+- Stable default: reuse manual-login session via unified Chrome CDP startup:
   `open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir="$HOME/.chrome-labali-no-proxy" --no-proxy-server`.
+- Experimental short-lived modes are available only when explicitly requested:
+  `--browser_mode headless` for non-visual capture and `--browser_mode headed`
+  for visible debugging. Keep `--browser_mode cdp` as the stable default until
+  live parity proves image order, video selection, OCR, and comment coverage.
 - Prefer semantic extraction from visible page state and loaded resources.
 - Download only target post assets: images plus optional post video.
 - Generate `post.md` for extracted text metadata.
@@ -169,7 +173,9 @@ XiaoHongShu applies behavioral analysis to detect automation. Violations of thes
   produce multiple files for later merge.
 
 **General:**
-- Always operate within the user's authenticated Chrome session (CDP reuse) — never launch a headless or separate browser.
+- Default to the user's authenticated Chrome session (CDP reuse). Use headless
+  or headed short-lived browser modes only as explicit experiments or debugging
+  runs, and compare outputs against the CDP path before trusting them.
 - Never read `window.__INITIAL_STATE__` or manipulate the DOM in ways that go beyond what a user's own browser JS would do.
 
 ## NEVER
@@ -179,7 +185,7 @@ XiaoHongShu applies behavioral analysis to detect automation. Violations of thes
 - Never report success if `post.md` was not generated.
 - Never report success based on action completion alone — verify output folder structure and required files exist.
 - **Never strip xsec_token or share params before navigating** — XiaoHongShu uses these tokens server-side to render authenticated content; a URL without them silently produces wrong image counts and missing text, with no error.
-- **Never launch a new Chrome instance if CDP is already responding on port 9223** — launching a second instance creates a separate session, loses the authenticated profile, and forces re-login.
+- **Never launch a second CDP Chrome instance if CDP is already responding on port 9223** — launching another long-lived manual session creates a separate session, loses the authenticated profile, and forces re-login. Explicit `--browser_mode headless|headed` runs are short-lived experiments and must close unless `--keep_open true` is passed for headed debugging.
 - **Never take over a non-XiaoHongShu browser tab** — if an existing XHS tab is found, reuse it by navigating it to the post URL; if no XHS tab exists, open a new tab. Never hijack tabs belonging to other pages (e.g., Gmail, dev tools). The correct behavior is always: XHS tab → navigate it to post URL; no XHS tab → open new tab.
 - **Never issue new outbound HTTP requests for post images** — use response interception or browser cache reads only; falling back to `page.request.get()` for images is a bot signal.
 - **Never use fixed (non-randomized) delays** — deterministic timing is a bot fingerprint; all waits must include a random component.
@@ -209,7 +215,11 @@ Comment export failure behavior:
 
 ## Operational Mode
 
-- Default mode: guided browser flow + semantic extraction + authenticated media download + local OCR for post images.
+- Default mode: `--browser_mode cdp`, guided browser flow + semantic extraction + authenticated media download + local OCR for post images.
+- Experimental short-lived mode: `--browser_mode headless` launches a
+  non-visual persistent context for the capture and closes it after completion.
+- Visible experiment/debug mode: `--browser_mode headed`; pass
+  `--keep_open true` only when the page should remain open for inspection.
 - Optional mode: add semantic comment extraction, comment image download, and write `comments/comments.json` + `comments/comments.md` when `include_comments=true`.
 - Startup guidance:
   - check if CDP is responding: `curl -s http://localhost:9223/json/version`
