@@ -7,7 +7,7 @@ Scripts: `core.ts` (URL parsing, extraction, file writing), `executor.ts` (full 
 **Key constraints that are non-obvious and must not be violated:**
 
 - **URL navigation**: always use the full original URL with all query params — `xsec_token` and share params are required for XiaoHongShu to render authenticated content server-side. Stripping them silently produces wrong image counts and missing text with no error.
-- **Browser session**: stable default is `--browser_mode cdp`; if CDP responds on port 9223, reuse that instance. The default `~/.chrome-labali-no-proxy` CDP launch must include `--no-proxy-server`. Launching a second long-lived CDP Chrome instance creates a separate unauthenticated session. Experimental `--browser_mode headless|headed` runs are short-lived Playwright persistent contexts and must be verified against the CDP path before becoming defaults.
+- **Browser session**: if CDP responds on port 9223, reuse that instance. The default `~/.chrome-labali-no-proxy` launch must include `--no-proxy-server`. Launching a second Chrome instance creates a separate unauthenticated session.
 - **Tab selection**: find an existing `xiaohongshu.com` tab and navigate it to the post URL. If no XHS tab exists, open a new tab. Never take over non-XHS tabs.
 - **Extraction order**: attempt state-intercept first; fall back to DOM only when state returns 0 results (see Extraction Decision Guide).
 - **Download context**: use the browser's authenticated request context for all media fetch — not a plain HTTP client.

@@ -10,7 +10,7 @@ import type { CDPSession, Page } from "playwright";
 const execFileAsync = promisify(execFile);
 
 export const DEFAULT_CDP_PORT = "9223";
-export const DEFAULT_PROFILE_DIR = resolve(homedir(), ".clipsmith", "browser-profiles", "wechat");
+export const DEFAULT_PROFILE_DIR = resolve(homedir(), ".chrome-labali-no-proxy");
 
 // ---------------------------------------------------------------------------
 // Input / Output Types
@@ -27,9 +27,6 @@ export interface DownloadArticleInputs {
   bundle_dir?: string;
   profile_dir?: string;
   cdp_port?: string;
-  browser_mode?: string;
-  keep_open?: boolean;
-  slow_mo_ms?: number;
   timeout_ms?: number;
   overwrite?: boolean;
 }

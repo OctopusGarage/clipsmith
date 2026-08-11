@@ -71,17 +71,10 @@ function printUsage(): void {
     --post_url "https://mp.weixin.qq.com/s/<article_id>" \\
     --output_dir "$HOME/Downloads/wechat" \\
     [--bundle_dir /path/to/inbox/wechat/wechat-<id>] \\
-    [--browser_mode headless|headed|cdp] \\
-    [--keep_open true|false] \\
-    [--slow_mo_ms 50] \\
     [--cdp_port 9223] \\
-    [--profile_dir ~/.clipsmith/browser-profiles/wechat] \\
+    [--profile_dir ~/.chrome-labali-no-proxy] \\
     [--timeout_ms 60000] \\
     [--overwrite true|false]
-
-Default browser mode is headless: the skill launches a non-visual browser for
-the capture and closes it when the capture finishes. Use headed for visible
-short-lived debugging, or cdp to attach to an existing Chrome on --cdp_port.
 
 When --bundle_dir is provided, the skill writes a finalized capture bundle
 (capture.json, post.md, summary.md, assets/) to that exact directory and
@@ -109,9 +102,6 @@ async function main(): Promise<void> {
     bundle_dir: optionalString(args, "bundle_dir") ?? optionalString(args, "bundle-dir"),
     cdp_port: optionalString(args, "cdp_port"),
     profile_dir: optionalString(args, "profile_dir"),
-    browser_mode: optionalString(args, "browser_mode") ?? optionalString(args, "browser-mode"),
-    keep_open: parseBoolean(args["keep_open"] ?? args["keep-open"], false),
-    slow_mo_ms: optionalNumber(args, "slow_mo_ms") ?? optionalNumber(args, "slow-mo-ms"),
     timeout_ms: optionalNumber(args, "timeout_ms"),
     overwrite: parseBoolean(args["overwrite"], false),
   };

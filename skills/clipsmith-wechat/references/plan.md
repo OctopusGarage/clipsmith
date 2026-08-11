@@ -4,11 +4,8 @@
 
 | Situation | Action |
 |-----------|--------|
-| Default capture | Launch a short-lived non-visual Chromium context with `--browser_mode headless`; close it after capture |
-| Visible debugging needed | Use `--browser_mode headed`; add `--keep_open true` to inspect the page after capture |
-| Existing manual Chrome session needed | Use `--browser_mode cdp --cdp_port 9223`; disconnect after capture without shutting down external Chrome |
-| Article requires WeChat login in headless mode | Fail with a rerun instruction for `--browser_mode headed` or `--browser_mode cdp`; do not block invisibly |
-| Article requires WeChat login in headed/CDP mode | Prompt user to log in manually in the opened browser window; do not proceed until confirmed |
+| CDP not responding on port 9223 | Auto-launch Chrome: `open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir=~/.chrome-labali-no-proxy --no-proxy-server`; wait 3s; verify; retry once |
+| Article requires WeChat login | Prompt user to log in manually in the opened browser window; do not proceed until confirmed |
 | Article title empty | Use `unknown` as title in folder name; proceed with download |
 | No images found in content | Check if `data-src` attributes are present; try scrolling page to trigger lazy load |
 | Publish time not found | Use today's date prefix with `unknown` suffix |

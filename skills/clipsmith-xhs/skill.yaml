@@ -1,5 +1,5 @@
 name: clipsmith-xhs
-description: Browser automation skill to export Xiaohongshu post assets into a local folder, including post.md, images, optional video, and optional comments export.
+description: Browser-only automation skill to export Xiaohongshu post assets into a local folder, including post.md, images, optional video, and optional comments export.
 executor: scripts/run.ts
 inputs:
   post_url:
@@ -21,11 +21,6 @@ inputs:
     required: false
     default: "9223"
     description: Chrome DevTools remote-debugging port; default 9223.
-  browser_mode:
-    type: string
-    required: false
-    default: cdp
-    description: Browser mode. cdp is the stable default; headless and headed are explicit short-lived experimental modes.
   proxy_mode:
     type: string
     required: false
@@ -35,15 +30,6 @@ inputs:
     type: string
     required: false
     description: Proxy server passed to Chrome as --proxy-server when proxy_mode=custom.
-  keep_open:
-    type: boolean
-    required: false
-    default: false
-    description: Keep the headed browser open after capture for manual inspection. Ignored outside headed mode.
-  slow_mo_ms:
-    type: string
-    required: false
-    description: Optional Playwright slowMo delay in milliseconds for headed debugging.
   timeout_ms:
     type: string
     required: false

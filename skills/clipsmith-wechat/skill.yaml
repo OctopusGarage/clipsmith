@@ -1,5 +1,5 @@
 name: clipsmith-wechat
-description: Short-lived browser automation skill to export a WeChat public account article into a local folder, including article.md, all embedded images, and optional video.
+description: Browser-only automation skill to export a WeChat public account article into a local folder, including article.md, all embedded images, and optional video.
 executor: scripts/run.ts
 inputs:
   post_url:
@@ -15,26 +15,12 @@ inputs:
     type: string
     required: false
     default: "9223"
-    description: Chrome DevTools remote-debugging port used only when browser_mode=cdp.
+    description: Chrome DevTools remote-debugging port; default 9223.
   profile_dir:
     type: string
     required: false
-    default: ~/.clipsmith/browser-profiles/wechat
-    description: Chrome user-data-dir used by short-lived headless/headed modes.
-  browser_mode:
-    type: string
-    required: false
-    default: headless
-    description: Browser mode: headless for short-lived non-visual capture, headed for visible short-lived debugging, or cdp to attach to an existing Chrome.
-  keep_open:
-    type: boolean
-    required: false
-    default: false
-    description: Keep the headed browser open after capture for manual inspection. Ignored outside headed mode.
-  slow_mo_ms:
-    type: string
-    required: false
-    description: Optional Playwright slowMo delay in milliseconds for headed debugging.
+    default: ~/.chrome-labali-no-proxy
+    description: Chrome user-data-dir used for the unified CDP startup command.
   timeout_ms:
     type: string
     required: false

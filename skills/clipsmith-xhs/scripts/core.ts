@@ -46,11 +46,8 @@ export interface DownloadPostInputs {
   output_dir?: string;
   profile_dir?: string;
   cdp_port?: string;
-  browser_mode?: string;
   proxy_mode?: string;
   proxy_server?: string;
-  keep_open?: boolean;
-  slow_mo_ms?: number;
   timeout_ms?: number;
   overwrite?: boolean;
   include_comments?: boolean;
