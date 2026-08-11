@@ -33,3 +33,5 @@ dist/
 .env
 .env.local
 .env.*.local
+
+.clipsmith/
