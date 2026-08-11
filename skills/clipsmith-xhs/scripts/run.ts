@@ -90,6 +90,7 @@ function printUsage(): void {
     [--cdp_port 9223] \\
     [--proxy_mode none|system|custom] \\
     [--proxy_server http://127.0.0.1:7890] \\
+    [--close_browser_on_success true|false] \\
     [--timeout_ms 90000] \\
     [--overwrite true|false] \\
     [--include_comments true|false] \\
@@ -113,6 +114,10 @@ async function main(): Promise<void> {
     cdp_port: optionalString(args, "cdp_port"),
     proxy_mode: optionalString(args, "proxy_mode"),
     proxy_server: optionalString(args, "proxy_server"),
+    close_browser_on_success: parseBoolean(
+      args["close_browser_on_success"] ?? args["close-browser-on-success"],
+      false
+    ),
     timeout_ms: optionalNumber(args, "timeout_ms"),
     overwrite: parseBoolean(args.overwrite, false),
     include_comments: parseBoolean(args.include_comments, false),

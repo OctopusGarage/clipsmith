@@ -36,9 +36,14 @@ Optional flags:
 - `--cdp_port 9223`
 - `--proxy_mode none|system|custom`
 - `--proxy_server http://127.0.0.1:7890`
+- `--close_browser_on_success true|false`
 - `--timeout_ms 90000`
 - `--overwrite true|false`
 - `--include_comments true|false`
+
+`--close_browser_on_success true` closes the connected CDP Chrome after a fully
+successful capture. Leave it at the default `false` if the browser has manual
+debugging tabs or should stay available after failures.
 
 If `post_url` or `output_dir` is omitted, the script prompts interactively.
 
@@ -58,6 +63,8 @@ If `post_url` or `output_dir` is omitted, the script prompts interactively.
 12. Run local OCR on post images and write `ocr.md`.
 13. If `include_comments=true`, extract comments and write `comments/comments.json` + `comments/comments.md`.
 14. If comment images exist, download them into `comments/images/`.
+15. If `close_browser_on_success=true` and there were no failed media items,
+    close the connected Chrome remote-debugging browser.
 
 ## 4) Technical Method
 

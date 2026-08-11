@@ -35,9 +35,14 @@ npx tsx scripts/run.ts \
 - `--cdp_port 9223`
 - `--proxy_mode none|system|custom`
 - `--proxy_server http://127.0.0.1:7890`
+- `--close_browser_on_success true|false`
 - `--timeout_ms 90000`
 - `--overwrite true|false`
 - `--include_comments true|false`
+
+`--close_browser_on_success true` 会在完整成功抓取后关闭当前连接的 CDP
+Chrome。如果该浏览器里有手动调试页面，或失败后需要保留现场，保持默认
+`false`。
 
 如果不传 `post_url` 或 `output_dir`，脚本会交互式询问。
 
@@ -56,6 +61,8 @@ npx tsx scripts/run.ts \
 11. 写入 `post.md`。
 12. 若 `include_comments=true`，提取评论并写入 `comments/comments.json` 与 `comments/comments.md`。
 13. 若评论含图片，下载到 `comments/images/`。
+14. 若 `close_browser_on_success=true` 且没有资源失败，关闭当前连接的
+    Chrome remote-debugging 浏览器。
 
 ## 4) 技术实现方法
 

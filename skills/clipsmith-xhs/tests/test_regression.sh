@@ -40,9 +40,9 @@ rg -n "Layer Contract|Success Criteria|Operational Mode" "$SKILL_MD" >/dev/null
 rg -n "Layered Boundaries|Execution Model|Download Correctness Standards" "$ARCH" >/dev/null
 rg -n "manual login|post.md|interactively|home page|remote-debugging-port=9223|chrome-labali-no-proxy|no-proxy-server|explore/<note_id>|video|merge" "$PLAN" "$SKILL_MD" "$EXECUTOR" "$CORE" >/dev/null
 
-rg -n -- "--post_url|--output_dir|--profile_dir|--cdp_port|--timeout_ms|--overwrite|--include_comments" "$RUNNER" >/dev/null
+rg -n -- "--post_url|--output_dir|--profile_dir|--cdp_port|--close_browser_on_success|--timeout_ms|--overwrite|--include_comments" "$RUNNER" >/dev/null
 rg -n "请输入小红书帖子链接|请输入本地保存目录" "$EXECUTOR" >/dev/null
-rg -n "connectOverCDP|ensureChromeWithRemoteDebugging|waitForManualLogin|downloadImages|downloadVideos|collectCommentImageUrls|mergeVideosAndCleanup|writePostMarkdown|writeImageOcrMarkdown|extractPostComments|writeCommentsJson|writeCommentsMarkdown|canonicalizePostUrl|normalizePublishTime|xiaohongshu.com" "$EXECUTOR" "$CORE" "$OCR" >/dev/null
+rg -n "connectOverCDP|ensureChromeWithRemoteDebugging|closeBrowserProcessOverCdp|waitForManualLogin|downloadImages|downloadVideos|collectCommentImageUrls|mergeVideosAndCleanup|writePostMarkdown|writeImageOcrMarkdown|extractPostComments|writeCommentsJson|writeCommentsMarkdown|canonicalizePostUrl|normalizePublishTime|xiaohongshu.com" "$EXECUTOR" "$CORE" "$OCR" >/dev/null
 rg -n "xhs-skill-long-term-asset|expected_note_id|required_ocr_phrases|forbid_summary" "$EVALS" "$EVAL" >/dev/null
 rg -n "ocr.md|run_ocr|Do not pass|fixture" "$EVAL_PROMPT" >/dev/null
 rg -n "verdict: PASS|metadata:|media:|ocr:|content:|noise:" "$EVAL_REPORT" >/dev/null
@@ -52,6 +52,6 @@ npx tsx "$OCR" --help >/dev/null
 if [[ "$(uname -s)" == "Darwin" ]]; then
   node "$EVAL" --fixture xhs-skill-long-term-asset --profile xhs-skill-long-term-asset --run_ocr >/dev/null
 fi
-npx tsx --test "$ROOT_DIR/tests/ocr.test.ts" "$ROOT_DIR/tests/video.test.ts"
+npx tsx --test "$ROOT_DIR/tests/browser-close.test.ts" "$ROOT_DIR/tests/ocr.test.ts" "$ROOT_DIR/tests/video.test.ts"
 
 echo "Regression checks passed"

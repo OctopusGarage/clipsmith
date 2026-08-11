@@ -48,6 +48,7 @@ export interface DownloadPostInputs {
   cdp_port?: string;
   proxy_mode?: string;
   proxy_server?: string;
+  close_browser_on_success?: boolean;
   timeout_ms?: number;
   overwrite?: boolean;
   include_comments?: boolean;
@@ -1627,6 +1628,82 @@ async function waitForCdpEndpoint(port: string, timeoutMs: number): Promise<bool
     await sleep(500);
   }
   return false;
+}
+
+type BrowserCloseWebSocket = {
+  onopen: (() => void) | null;
+  onmessage: ((event: { data: unknown }) => void) | null;
+  onerror: ((event: unknown) => void) | null;
+  onclose: (() => void) | null;
+  send(data: string): void;
+  close(): void;
+};
+
+type BrowserCloseWebSocketConstructor = new (url: string) => BrowserCloseWebSocket;
+
+export interface CloseBrowserProcessOverCdpDeps {
+  fetchImpl?: typeof fetch;
+  WebSocketImpl?: BrowserCloseWebSocketConstructor;
+}
+
+export async function closeBrowserProcessOverCdp(
+  port: string,
+  log: (message: string) => void,
+  deps: CloseBrowserProcessOverCdpDeps = {}
+): Promise<void> {
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  const response = await fetchImpl(`http://127.0.0.1:${port}/json/version`);
+  if (!response.ok) {
+    throw new Error(`CDP endpoint on :${port} returned HTTP ${response.status}`);
+  }
+
+  const version = (await response.json()) as { webSocketDebuggerUrl?: string };
+  if (!version.webSocketDebuggerUrl) {
+    throw new Error(`CDP endpoint on :${port} did not expose webSocketDebuggerUrl`);
+  }
+
+  const WebSocketCtor = deps.WebSocketImpl ?? globalThis.WebSocket;
+  if (!WebSocketCtor) {
+    throw new Error("WebSocket is not available in this Node.js runtime");
+  }
+
+  log(`closing Chrome remote debugging session on :${port}`);
+  await new Promise<void>((resolveClose, rejectClose) => {
+    const socket = new WebSocketCtor(version.webSocketDebuggerUrl);
+    const timeout = setTimeout(() => {
+      socket.close();
+      rejectClose(new Error(`Timed out while closing Chrome on :${port}`));
+    }, 5000);
+
+    socket.onopen = () => {
+      socket.send(JSON.stringify({ id: 1, method: "Browser.close" }));
+    };
+    socket.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(String(event.data)) as { id?: number; error?: unknown };
+        if (payload.id !== 1) {
+          return;
+        }
+        clearTimeout(timeout);
+        if (payload.error) {
+          rejectClose(new Error(`Browser.close failed: ${JSON.stringify(payload.error)}`));
+          return;
+        }
+        resolveClose();
+      } catch (error) {
+        clearTimeout(timeout);
+        rejectClose(error instanceof Error ? error : new Error(String(error)));
+      }
+    };
+    socket.onerror = (event) => {
+      clearTimeout(timeout);
+      rejectClose(new Error(`WebSocket error while closing Chrome: ${String(event)}`));
+    };
+    socket.onclose = () => {
+      clearTimeout(timeout);
+      resolveClose();
+    };
+  });
 }
 
 export async function ensureChromeWithRemoteDebugging(

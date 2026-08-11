@@ -9,6 +9,7 @@ import {
   canonicalizePostUrl,
   browseAndCaptureImages,
   checkForRiskSignals,
+  closeBrowserProcessOverCdp,
   dismissLoginModalIfPresent,
   downloadImages,
   downloadVideos,
@@ -179,6 +180,7 @@ export async function execute(inputs: DownloadPostInputs, context?: ExecutorCont
   const timeoutMs = toTimeout(inputs.timeout_ms);
   const overwrite = inputs.overwrite ?? false;
   const includeComments = inputs.include_comments ?? false;
+  let closeBrowserOnSuccess = false;
   await ensureDir(profileDir);
 
   await ensureChromeWithRemoteDebugging(cdpPort, profileDir, log, inputs.proxy_mode, inputs.proxy_server);
@@ -416,8 +418,15 @@ export async function execute(inputs: DownloadPostInputs, context?: ExecutorCont
     log(
       `done: images=${result.image_count}, videos=${result.video_count}, comments=${result.comments_count}, comment_images=${result.comment_image_count}, failed=${result.failed_count}, output=${result.note_dir}`
     );
+    closeBrowserOnSuccess = Boolean(inputs.close_browser_on_success) && result.failed_count === 0;
     return result;
   } finally {
+    if (closeBrowserOnSuccess) {
+      await closeBrowserProcessOverCdp(cdpPort, log).catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        log(`failed to close Chrome remote debugging session on :${cdpPort}: ${message}`);
+      });
+    }
     await browser.close().catch(() => undefined);
   }
 }

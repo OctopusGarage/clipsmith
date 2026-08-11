@@ -30,6 +30,11 @@ inputs:
     type: string
     required: false
     description: Proxy server passed to Chrome as --proxy-server when proxy_mode=custom.
+  close_browser_on_success:
+    type: boolean
+    required: false
+    default: false
+    description: Close the connected Chrome remote-debugging browser after a fully successful capture. Failed or partial captures leave the browser open for inspection.
   timeout_ms:
     type: string
     required: false

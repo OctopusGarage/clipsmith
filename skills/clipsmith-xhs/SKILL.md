@@ -105,6 +105,10 @@ fixture eval must not depend on network access.
 - Do not use Xiaohongshu private APIs.
 - Reuse manual-login session via unified Chrome CDP startup:
   `open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir="$HOME/.chrome-labali-no-proxy" --no-proxy-server`.
+- Optional cleanup: pass `--close_browser_on_success true` only when the CDP
+  Chrome is dedicated to this automation run. The browser closes after a fully
+  successful capture; failures and partial captures leave it open for manual
+  inspection.
 - Prefer semantic extraction from visible page state and loaded resources.
 - Download only target post assets: images plus optional post video.
 - Generate `post.md` for extracted text metadata.
@@ -210,6 +214,9 @@ Comment export failure behavior:
 ## Operational Mode
 
 - Default mode: guided browser flow + semantic extraction + authenticated media download + local OCR for post images.
+- Optional cleanup mode: `--close_browser_on_success true` closes the connected
+  CDP Chrome after a successful capture with `failed_count=0`; keep the default
+  `false` when the same browser is used for manual debugging or other tabs.
 - Optional mode: add semantic comment extraction, comment image download, and write `comments/comments.json` + `comments/comments.md` when `include_comments=true`.
 - Startup guidance:
   - check if CDP is responding: `curl -s http://localhost:9223/json/version`
