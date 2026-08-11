@@ -52,6 +52,6 @@ npx tsx "$OCR" --help >/dev/null
 if [[ "$(uname -s)" == "Darwin" ]]; then
   node "$EVAL" --fixture xhs-skill-long-term-asset --profile xhs-skill-long-term-asset --run_ocr >/dev/null
 fi
-npx tsx --test "$ROOT_DIR/tests/browser-close.test.ts" "$ROOT_DIR/tests/ocr.test.ts" "$ROOT_DIR/tests/video.test.ts"
+npx tsx --test "$ROOT_DIR/../_shared/browser-runtime/tests/cdp.test.ts" "$ROOT_DIR/tests/ocr.test.ts" "$ROOT_DIR/tests/video.test.ts"
 
 echo "Regression checks passed"

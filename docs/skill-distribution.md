@@ -52,6 +52,18 @@ normalization rules.
 Packaged skill installs may omit those assets. Installed users should still get
 the runtime prompts and executors needed for capture.
 
+## Shared Runtime Assets
+
+Browser-based skills may depend on runtime code under `skills/_shared/`. This
+directory is not a skill and has no `SKILL.md`.
+
+Distribution rules:
+
+- install `_shared/` alongside browser provider skills
+- keep `_shared/` installed when uninstalling only one browser skill
+- package runtime scripts in wheels
+- exclude shared tests, local dependencies, and caches
+
 ## Guardrails
 
 Run the project health check before distributing:

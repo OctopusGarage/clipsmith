@@ -30,3 +30,34 @@ def test_install_skills_report_returns_structured_operations_without_printing(
         "[codex] linked: clipsmith-capture",
         "[codex] done: 1 changed, 0 skipped",
     ]
+
+
+def test_uninstall_one_browser_skill_keeps_shared_runtime(tmp_path, monkeypatch):
+    codex_home = tmp_path / "codex"
+    monkeypatch.setenv("CODEX_HOME", str(codex_home))
+
+    install_report = install_skills_report(
+        InstallOptions(
+            action="install",
+            claude=False,
+            codex=True,
+            copy=False,
+            only="clipsmith-xhs,clipsmith-wechat",
+        )
+    )
+    shared = codex_home / "skills" / "_shared"
+    assert install_report.targets[0].changed == 3
+    assert shared.is_dir()
+
+    uninstall_report = install_skills_report(
+        InstallOptions(
+            action="uninstall",
+            claude=False,
+            codex=True,
+            copy=False,
+            only="clipsmith-xhs",
+        )
+    )
+
+    assert uninstall_report.targets[0].operations[0].skill == "clipsmith-xhs"
+    assert shared.is_dir()

@@ -83,6 +83,16 @@ def test_missing_quality_gate_is_reported(tmp_path):
     ]
 
 
+def test_non_skill_directories_are_ignored(tmp_path):
+    shared_dir = tmp_path / "skills" / "_shared" / "browser-runtime"
+    shared_dir.mkdir(parents=True)
+    (shared_dir / "cdp.ts").write_text("export {};\n", encoding="utf-8")
+
+    issues = validate_skill_quality_gates(tmp_path)
+
+    assert issues == []
+
+
 def test_quality_gate_skill_name_must_match_directory(tmp_path):
     _write_skill(tmp_path, "clipsmith-web", _valid_gate("other-skill"))
 

@@ -151,7 +151,9 @@ def path_reference_is_safe(value: str) -> bool:
 if not skills_root.is_dir():
     fail("missing skills/ directory")
 else:
-    skill_dirs = sorted(path for path in skills_root.iterdir() if path.is_dir())
+    skill_dirs = sorted(
+        path for path in skills_root.iterdir() if path.is_dir() and (path / "SKILL.md").is_file()
+    )
     if not skill_dirs:
         fail("skills/ has no skill directories")
     for skill_dir in skill_dirs:

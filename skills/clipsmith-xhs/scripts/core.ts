@@ -1,19 +1,19 @@
 import { constants, createWriteStream } from "node:fs";
 import { access, mkdir, rename, unlink, writeFile } from "node:fs/promises";
-import { execFile } from "node:child_process";
 import { homedir } from "node:os";
 import { extname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { promisify } from "node:util";
 import type { Page } from "playwright";
-
-const execFileAsync = promisify(execFile);
+export {
+  closeBrowserProcessOverCdp,
+  getChromeProxyArgs,
+} from "../../_shared/browser-runtime/scripts/cdp";
+import { ensureCdpChrome } from "../../_shared/browser-runtime/scripts/cdp";
 
 export const DEFAULT_PROFILE_DIR = resolve(homedir(), ".chrome-labali-no-proxy");
 export const DEFAULT_CDP_PORT = "9223";
-export const DEFAULT_PROXY_MODE = "none";
 
 const PAGE_EVALUATE_RUNTIME =
   "globalThis.__name = globalThis.__name || function(target) { return target; };";
@@ -53,24 +53,6 @@ export interface DownloadPostInputs {
   overwrite?: boolean;
   include_comments?: boolean;
   flat?: boolean;
-}
-
-function getChromeProxyArgs(proxyModeRaw: string | undefined, proxyServerRaw: string | undefined): string[] {
-  const proxyMode = (proxyModeRaw || DEFAULT_PROXY_MODE).trim().toLowerCase();
-  if (proxyMode === "none") {
-    return ["--no-proxy-server"];
-  }
-  if (proxyMode === "system") {
-    return [];
-  }
-  if (proxyMode === "custom") {
-    const proxyServer = (proxyServerRaw || "").trim();
-    if (!proxyServer) {
-      throw new Error("proxy_server is required when proxy_mode=custom");
-    }
-    return [`--proxy-server=${proxyServer}`];
-  }
-  throw new Error(`Unsupported proxy_mode: ${proxyMode}. Expected one of: none, system, custom`);
 }
 
 export interface DownloadFailure {
@@ -1597,115 +1579,6 @@ export async function waitForManualLogin(promptText: string): Promise<void> {
   }
 }
 
-async function sleep(ms: number): Promise<void> {
-  await new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
-}
-
-async function isCdpEndpointReady(port: string): Promise<boolean> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1500);
-    const response = await fetch(`http://127.0.0.1:${port}/json/version`, {
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    if (!response.ok) {
-      return false;
-    }
-    const json = (await response.json()) as { Browser?: string };
-    return typeof json.Browser === "string" && json.Browser.length > 0;
-  } catch {
-    return false;
-  }
-}
-
-async function waitForCdpEndpoint(port: string, timeoutMs: number): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (await isCdpEndpointReady(port)) {
-      return true;
-    }
-    await sleep(500);
-  }
-  return false;
-}
-
-type BrowserCloseWebSocket = {
-  onopen: (() => void) | null;
-  onmessage: ((event: { data: unknown }) => void) | null;
-  onerror: ((event: unknown) => void) | null;
-  onclose: (() => void) | null;
-  send(data: string): void;
-  close(): void;
-};
-
-type BrowserCloseWebSocketConstructor = new (url: string) => BrowserCloseWebSocket;
-
-export interface CloseBrowserProcessOverCdpDeps {
-  fetchImpl?: typeof fetch;
-  WebSocketImpl?: BrowserCloseWebSocketConstructor;
-}
-
-export async function closeBrowserProcessOverCdp(
-  port: string,
-  log: (message: string) => void,
-  deps: CloseBrowserProcessOverCdpDeps = {}
-): Promise<void> {
-  const fetchImpl = deps.fetchImpl ?? fetch;
-  const response = await fetchImpl(`http://127.0.0.1:${port}/json/version`);
-  if (!response.ok) {
-    throw new Error(`CDP endpoint on :${port} returned HTTP ${response.status}`);
-  }
-
-  const version = (await response.json()) as { webSocketDebuggerUrl?: string };
-  if (!version.webSocketDebuggerUrl) {
-    throw new Error(`CDP endpoint on :${port} did not expose webSocketDebuggerUrl`);
-  }
-
-  const WebSocketCtor = deps.WebSocketImpl ?? globalThis.WebSocket;
-  if (!WebSocketCtor) {
-    throw new Error("WebSocket is not available in this Node.js runtime");
-  }
-
-  log(`closing Chrome remote debugging session on :${port}`);
-  await new Promise<void>((resolveClose, rejectClose) => {
-    const socket = new WebSocketCtor(version.webSocketDebuggerUrl);
-    const timeout = setTimeout(() => {
-      socket.close();
-      rejectClose(new Error(`Timed out while closing Chrome on :${port}`));
-    }, 5000);
-
-    socket.onopen = () => {
-      socket.send(JSON.stringify({ id: 1, method: "Browser.close" }));
-    };
-    socket.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(String(event.data)) as { id?: number; error?: unknown };
-        if (payload.id !== 1) {
-          return;
-        }
-        clearTimeout(timeout);
-        if (payload.error) {
-          rejectClose(new Error(`Browser.close failed: ${JSON.stringify(payload.error)}`));
-          return;
-        }
-        resolveClose();
-      } catch (error) {
-        clearTimeout(timeout);
-        rejectClose(error instanceof Error ? error : new Error(String(error)));
-      }
-    };
-    socket.onerror = (event) => {
-      clearTimeout(timeout);
-      rejectClose(new Error(`WebSocket error while closing Chrome: ${String(event)}`));
-    };
-    socket.onclose = () => {
-      clearTimeout(timeout);
-      resolveClose();
-    };
-  });
-}
-
 export async function ensureChromeWithRemoteDebugging(
   port: string,
   userDataDir: string,
@@ -1713,31 +1586,7 @@ export async function ensureChromeWithRemoteDebugging(
   proxyMode?: string,
   proxyServer?: string
 ): Promise<void> {
-  if (await isCdpEndpointReady(port)) {
-    log(`Reuse Chrome remote debugging session on :${port}`);
-    return;
-  }
-
-  const chromeArgs = [
-    "-na",
-    "Google Chrome",
-    "--args",
-    `--remote-debugging-port=${port}`,
-    `--user-data-dir=${userDataDir}`,
-    ...getChromeProxyArgs(proxyMode, proxyServer),
-  ];
-  log(`Launch Chrome remote debugging session: open ${chromeArgs.join(" ")}`);
-  await execFileAsync("open", chromeArgs, {
-    maxBuffer: 4 * 1024 * 1024,
-    env: process.env,
-  });
-
-  const ready = await waitForCdpEndpoint(port, 20000);
-  if (!ready) {
-    throw new Error(
-      `Chrome CDP endpoint not ready on :${port} after launch. Start manually: open -na "Google Chrome" --args --remote-debugging-port=${port} --user-data-dir=${userDataDir}`
-    );
-  }
+  await ensureCdpChrome({ port, userDataDir, log, proxyMode, proxyServer });
 }
 
 function inferExtensionFromContentType(contentType: string | undefined): string {

@@ -1,186 +1,113 @@
-# clipsmith-xhs Usage
+# clipsmith-xhs
 
-This skill downloads Xiaohongshu post assets into a local folder with browser automation.
+Capture Xiaohongshu (XHS) posts into a local folder using the user's
+authenticated Chrome CDP session.
 
-Current output policy:
-- Save `post.md`
-- Save post images
-- Save `ocr.md` by running local OCR on post images by default
-- Save post video when available
-- Optionally export comments (`comments.json` + `comments.md`) with `--include_comments true` (**experimental, completeness/accuracy not guaranteed**)
-- Comment export is written under a dedicated `comments/` subdirectory
-- If video is split into multiple segments, merge to one `video-merged.mp4` and remove segment files
-- Do **not** save `manifest.json`
-
-## 1) Install and Update
-
-Install from GitHub:
-
-```bash
-npx skills add <clipsmith-repo>/skills/clipsmith-xhs
-```
-
-Update to latest version: run the install command again.
-
-## 2) Quick Start
+## Quick Start
 
 ```bash
 cd <clipsmith-repo>/skills/clipsmith-xhs
 npx tsx scripts/run.ts \
-  --post_url "https://www.xiaohongshu.com/explore/<note_id>?xsec_token=...&xsec_source=pc_user" \
+  --post_url "https://www.xiaohongshu.com/explore/<note_id>?xsec_token=..." \
   --output_dir "/absolute/output/dir"
 ```
 
-Optional flags:
-- `--profile_dir ~/.chrome-labali-no-proxy`
-- `--cdp_port 9223`
-- `--proxy_mode none|system|custom`
-- `--proxy_server http://127.0.0.1:7890`
-- `--close_browser_on_success true|false`
-- `--timeout_ms 90000`
-- `--overwrite true|false`
-- `--include_comments true|false`
+Short links from `xhslink.cn` and `xhslink.com` are supported. Keep the original
+query parameters for navigation; the output URL is normalized to
+`https://www.xiaohongshu.com/explore/<note_id>`.
 
-`--close_browser_on_success true` closes the connected CDP Chrome after a fully
-successful capture. Leave it at the default `false` if the browser has manual
-debugging tabs or should stay available after failures.
+If `post_url` or `output_dir` is omitted, the runner prompts interactively.
 
-If `post_url` or `output_dir` is omitted, the script prompts interactively.
+## Output
 
-## 3) Runtime Flow
+The raw capture directory contains:
 
-1. Launch/reuse Chrome with CDP (`open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir=... --no-proxy-server`).
-2. Connect via CDP.
-3. Open Xiaohongshu home and check login state.
-4. If login is required, pause and wait for manual login.
-5. Open target post URL.
-6. Extract post data from page state (primary) and DOM fallback.
-7. Normalize output URL to canonical form: `https://www.xiaohongshu.com/explore/<note_id>`.
-8. Create folder named `<publish_time>-<note_id>`.
-9. Download images and videos.
-10. If multiple videos exist, merge to `video-merged.mp4` and clean temporary files.
-11. Write `post.md`.
-12. Run local OCR on post images and write `ocr.md`.
-13. If `include_comments=true`, extract comments and write `comments/comments.json` + `comments/comments.md`.
-14. If comment images exist, download them into `comments/images/`.
-15. If `close_browser_on_success=true` and there were no failed media items,
-    close the connected Chrome remote-debugging browser.
+- `post.md`
+- downloaded post images
+- `ocr.md` generated from post images
+- downloaded post video when available
+- optional `comments/comments.json` and `comments/comments.md`
+- no `manifest.json`
 
-## 4) Technical Method
+When `--flat true` is not set, the runner creates a dated post subdirectory.
+When `--flat true` is set, it writes directly into `--output_dir`.
 
-Execution stack:
-- Browser startup: system command (`open -na "Google Chrome" ... --remote-debugging-port=<port>`)
-- CDP communication: Playwright `connectOverCDP`
-- Data extraction:
-  - Primary: `window.__INITIAL_STATE__.note.noteDetailMap`
-  - Fallback: fixed DOM selectors and filtered media URL heuristics
-- Comment extraction:
-  - Primary: best-effort structured scan from `window.__INITIAL_STATE__`
-  - Fallback: comment DOM selectors with user/userId and reply relation fields
-  - Pagination strategy: scroll + click visible "more/expand/reply/next" elements to load additional comments/replies
-- Comment assets:
-  - Download comment images into `comments/images/`
-- Media download: authenticated request context from browser session
-- Video merge: `ffmpeg` concat (`copy` first, then re-encode fallback)
+## Options
 
-## 5) Output Structure
+| Flag | Default | Notes |
+|------|---------|-------|
+| `--profile_dir` | `~/.chrome-labali-no-proxy` | Chrome user-data-dir |
+| `--cdp_port` | `9223` | Chrome DevTools port |
+| `--proxy_mode` | `none` | `none`, `system`, or `custom` |
+| `--proxy_server` | unset | Required when `proxy_mode=custom` |
+| `--close_browser_on_success` | `false` | Close the connected CDP Chrome only after a fully successful capture |
+| `--timeout_ms` | `90000` | Navigation and extraction timeout |
+| `--overwrite` | `false` | Replace generated files with the same names |
+| `--include_comments` | `false` | Best-effort comment export |
+| `--flat` | `false` | Write directly into `output_dir` |
 
-Example:
+Use `--close_browser_on_success true` only when the CDP Chrome is dedicated to
+automation. Failed or partial captures leave Chrome open for inspection.
 
-```text
-<output_dir>/
-  <publish_time>-<note_id>/
-    001.webp
-    002.webp
-    video-merged.mp4   (if video exists)
-    post.md
-    ocr.md
-    comments/          (if --include_comments true)
-      comments.json
-      comments.md
-      images/
-        001.webp
-        002.webp
-```
+## Browser Model
 
-## 6) Limitations and Fragility
+XHS uses the shared Clipsmith browser runtime for CDP startup, proxy flags, port
+probing, and optional shutdown. The provider-specific code owns XHS navigation,
+risk checks, carousel ordering, media download, OCR, and comments.
 
-This skill is robust for current pages, but not fully inference-driven. Main risks:
-
-1. Frontend state schema drift
-- Primary extractor depends on `__INITIAL_STATE__.note.noteDetailMap` layout.
-- If Xiaohongshu changes schema, extraction can fail.
-
-2. DOM fallback is selector-based
-- Fallback uses fixed selectors and text pattern rules.
-- Major UI changes may break fallback quality.
-
-3. Login gate and anti-bot changes
-- Login detection is heuristic (URL/text).
-- Anti-bot / access policy changes can cause 404/redirect/empty extraction.
-
-4. Canonical URL access variability
-- Canonical `/explore/<note_id>` may not be directly openable in some sessions/regions.
-- Runtime navigates with input URL but reports canonical URL in output.
-
-5. Video segmentation/codec constraints
-- Multi-part videos require local `ffmpeg`.
-- Without `ffmpeg`, segmented videos cannot be auto-merged.
-
-6. Comment export is not fully reliable (important)
-- Comment extraction is best-effort and may miss some top-level/reply comments, reply relations, images, or emoji assets.
-- UI/risk-control/lazy-load changes can still cause partial or mis-grouped comment output.
-
-## 7) Evaluation Fixtures
-
-The repo includes a user-owned XHS fixture at:
-
-```text
-evals/fixtures/xhs-skill-long-term-asset/
-```
-
-It contains the source `post.md`, fixture images, expected `ocr.md`, and a
-baseline `evals/ai-evals/xhs-skill-long-term-asset.md`. Use it in the source
-repo to guard OCR and prompt changes without relying on live Xiaohongshu access:
+Default startup:
 
 ```bash
+open -na "Google Chrome" --args \
+  --remote-debugging-port=9223 \
+  --user-data-dir="$HOME/.chrome-labali-no-proxy" \
+  --no-proxy-server
+```
+
+The runner reuses an existing XHS tab when possible. If no XHS tab exists, it
+opens one in the same CDP browser.
+
+## Normalize and Validate
+
+For a final Clipsmith bundle:
+
+```bash
+uv run clipsmith normalize raw xhs "<raw_dir>" "<bundle_dir>" \
+  --source-url "<original_url>" \
+  --canonical-url "<canonical_url>" \
+  --title "<title>" \
+  --captured-at "<iso8601_time>" \
+  --json
+
+uv run clipsmith validate-bundle "<bundle_dir>" --json
+```
+
+Use `--overwrite` with `normalize raw` when normalizing in place.
+
+## Reliability Notes
+
+- XHS access depends on login state, URL tokens, IP reputation, and platform risk controls.
+- Comment export is best-effort and may miss replies, images, or hierarchy.
+- Video segment merge requires `ffmpeg`.
+- If media is empty, retry with the original full share URL including tokens.
+- If a hard risk signal appears, stop and inspect the browser manually.
+
+## Source-Repo Checks
+
+Before reporting provider changes ready:
+
+```bash
+bash tests/test_regression.sh
 node scripts/eval.mjs \
   --fixture xhs-skill-long-term-asset \
   --profile xhs-skill-long-term-asset
+```
 
+Run the fresh OCR eval when OCR behavior changes:
+
+```bash
 node scripts/eval.mjs \
   --fixture xhs-skill-long-term-asset \
   --profile xhs-skill-long-term-asset \
   --run_ocr
 ```
-
-For live captures, validate the produced folder directly:
-
-```bash
-node scripts/eval.mjs \
-  --note_dir "/path/to/xhs/output-folder" \
-  --profile xhs-skill-long-term-asset
-```
-
-Run agent AI eval with `prompts/evaluate-capture.md` after deterministic eval
-passes, and compare the result to the AI eval baseline. Packaged skill installs
-may omit eval fixtures and baselines.
-
-## 8) Troubleshooting
-
-- If download returns empty media:
-  - Confirm browser is logged in to Xiaohongshu.
-  - Re-run with full source URL (including token) for navigation.
-- If videos are split but not merged:
-  - Install `ffmpeg` and ensure it is in `PATH`.
-- If output contains stale files:
-  - Re-run with `--overwrite true`.
-
-## 9) Notes for Maintenance
-
-When page structure changes, prioritize:
-1. Fixing `__INITIAL_STATE__` extraction path
-2. Keeping DOM fallback minimal and defensive
-3. Preserving output contract (`post.md`, `ocr.md`, images, merged video, no manifest)
-4. Running the committed fixture eval and fresh-OCR eval before reporting the
-   provider ready

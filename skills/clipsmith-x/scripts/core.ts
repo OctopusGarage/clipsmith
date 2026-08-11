@@ -1,7 +1,10 @@
 import { type Page, CDPSession } from "playwright";
 import { writeFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { spawn } from "node:child_process";
+import {
+  ensureCdpChrome,
+  probeCdpEndpoint,
+} from "../../_shared/browser-runtime/scripts/cdp";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -256,12 +259,7 @@ export async function ensureDir(path: string): Promise<void> {
  * touches the user's normal Chrome instance.
  */
 export async function probeCdp(cdpPort: string): Promise<boolean> {
-  try {
-    const resp = await fetch(`http://localhost:${cdpPort}/json/version`);
-    return resp.ok;
-  } catch {
-    return false;
-  }
+  return probeCdpEndpoint(cdpPort);
 }
 
 /**
@@ -279,42 +277,17 @@ export async function ensureChromeWithRemoteDebugging(
   options: { autolaunch?: boolean; proxyMode?: string; proxyServer?: string } = {}
 ): Promise<void> {
   const { autolaunch = false, proxyMode, proxyServer } = options;
-
-  if (await probeCdp(cdpPort)) {
-    log(`CDP already responding on :${cdpPort}`);
-    return;
-  }
-
-  if (!autolaunch) {
-    throw new Error(
-      `No Chrome DevTools Protocol listener on http://localhost:${cdpPort}. ` +
-        `Launch Chrome with --remote-debugging-port=${cdpPort} first, or pass ` +
-        `--autolaunch to spawn an isolated instance.`
-    );
-  }
-
-  log(`autolaunch: spawning isolated Chrome on :${cdpPort}`);
   const absProfile = ensureAbsolutePath(profileDir);
   await ensureDir(absProfile);
-  const args = [
-    "-na", "Google Chrome",
-    "--args",
-    `--remote-debugging-port=${cdpPort}`,
-    `--user-data-dir=${absProfile}`,
-    ...(proxyMode === "system" ? [] : ["--no-proxy-server"]),
-    ...(proxyServer ? [`--proxy-server=${proxyServer}`] : []),
-  ];
-  spawn("open", args, { detached: true, stdio: "ignore" });
-  await wait(3000);
-
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (await probeCdp(cdpPort)) {
-      log(`Chrome ready on :${cdpPort}`);
-      return;
-    }
-    await wait(2000);
-  }
-  throw new Error(`Chrome did not start on CDP port ${cdpPort} after 3 attempts.`);
+  await ensureCdpChrome({
+    port: cdpPort,
+    userDataDir: absProfile,
+    log,
+    autolaunch,
+    proxyMode,
+    proxyServer,
+    timeoutMs: 9000,
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -311,7 +311,12 @@ def validate_skill_quality_gates_result(root: Path | str) -> QualityGateValidati
 
     issues: list[QualityGateIssue] = []
     plans: list[QualityGatePlan] = []
-    for skill_dir in sorted(path for path in skills_root.iterdir() if path.is_dir()):
+    for skill_dir in sorted(
+        path
+        for path in skills_root.iterdir()
+        if path.is_dir()
+        and ((path / "SKILL.md").is_file() or (path / QUALITY_GATE_FILE).is_file())
+    ):
         relative = skill_dir.relative_to(root_path).as_posix()
         gate_path = skill_dir / QUALITY_GATE_FILE
         if not gate_path.is_file():

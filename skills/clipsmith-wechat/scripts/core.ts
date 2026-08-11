@@ -1,13 +1,10 @@
 import { constants } from "node:fs";
 import { access, mkdir, writeFile } from "node:fs/promises";
-import { execFile, spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { extname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
-import { promisify } from "node:util";
 import type { CDPSession, Page } from "playwright";
-
-const execFileAsync = promisify(execFile);
+import { ensureCdpChrome } from "../../_shared/browser-runtime/scripts/cdp";
 
 export const DEFAULT_CDP_PORT = "9223";
 export const DEFAULT_PROFILE_DIR = resolve(homedir(), ".chrome-labali-no-proxy");
@@ -152,46 +149,14 @@ export async function ensureChromeWithRemoteDebugging(
   cdpPort: string,
   profileDir: string
 ): Promise<void> {
-  const versionUrl = `http://localhost:${cdpPort}/json/version`;
-  try {
-    const { stdout } = await execFileAsync("curl", ["-s", "--max-time", "2", versionUrl]);
-    if (stdout.includes("webSocketDebuggerUrl") || stdout.includes("Browser")) {
-      return; // already running
-    }
-  } catch {
-    // not running — launch
-  }
-
   const resolvedProfile = profileDir.startsWith("~")
     ? resolve(homedir(), profileDir.slice(2))
     : profileDir;
-
-  console.log(`[chrome] Launching Chrome with remote debugging on port ${cdpPort}...`);
-  spawnSync("open", [
-    "-na",
-    "Google Chrome",
-    "--args",
-    `--remote-debugging-port=${cdpPort}`,
-    `--user-data-dir=${resolvedProfile}`,
-    "--no-proxy-server",
-  ]);
-
-  // Wait for Chrome to start
-  await new Promise((r) => setTimeout(r, 3000));
-
-  // Verify
-  try {
-    const { stdout } = await execFileAsync("curl", ["-s", "--max-time", "5", versionUrl]);
-    if (!stdout.includes("webSocketDebuggerUrl") && !stdout.includes("Browser")) {
-      throw new Error("Chrome did not start with remote debugging enabled.");
-    }
-  } catch {
-    throw new Error(
-      `Chrome remote debugging is not responding on port ${cdpPort}. ` +
-        `Please start Chrome manually:\n` +
-        `open -na "Google Chrome" --args --remote-debugging-port=${cdpPort} --user-data-dir=${resolvedProfile} --no-proxy-server`
-    );
-  }
+  await ensureCdpChrome({
+    port: cdpPort,
+    userDataDir: resolvedProfile,
+    log: (message) => console.log(`[chrome] ${message}`),
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -313,11 +313,14 @@ def test_install_copy_excludes_development_assets(tmp_path, monkeypatch, capsys)
     captured = capsys.readouterr()
 
     xhs = codex_home / "skills" / "clipsmith-xhs"
+    shared = codex_home / "skills" / "_shared"
     ocr = codex_home / "skills" / "clipsmith-ocr"
     assert code == 0
     assert "[codex] copied: clipsmith-xhs" in captured.out
     assert (xhs / "SKILL.md").is_file()
     assert (xhs / "scripts" / "run.ts").is_file()
+    assert (shared / "browser-runtime" / "scripts" / "cdp.ts").is_file()
+    assert not (shared / "browser-runtime" / "tests").exists()
     assert not (xhs / "scripts" / "eval.mjs").exists()
     assert not (xhs / "evals").exists()
     assert not (xhs / "tests").exists()

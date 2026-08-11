@@ -41,6 +41,8 @@ exclude = [
 ]
 
 [tool.hatch.build.targets.wheel.force-include]
+"skills/_shared/browser-runtime/scripts" = "clipsmith/skills/_shared/browser-runtime/scripts"
+
 "skills/clipsmith-capture/SKILL.md" = "clipsmith/skills/clipsmith-capture/SKILL.md"
 "skills/clipsmith-capture/agents" = "clipsmith/skills/clipsmith-capture/agents"
 "skills/clipsmith-capture/quality-gate.json" = "clipsmith/skills/clipsmith-capture/quality-gate.json"

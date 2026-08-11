@@ -31,6 +31,16 @@ SKILL_COPY_EXCLUDE_NAMES = frozenset(
     }
 )
 
+BROWSER_RUNTIME_SKILLS = frozenset(
+    {
+        "clipsmith-web",
+        "clipsmith-wechat",
+        "clipsmith-x",
+        "clipsmith-xhs",
+    }
+)
+SHARED_RUNTIME_DIRS = ("_shared",)
+
 
 @dataclass(frozen=True)
 class InstallOptions:
@@ -277,7 +287,17 @@ def _process_target(
     operations: list[InstallationOperation] = []
     target_root.mkdir(parents=True, exist_ok=True)
 
-    for name in selected:
+    include_shared_runtime = (
+        BROWSER_RUNTIME_SKILLS.intersection(selected)
+        if action != "uninstall"
+        else BROWSER_RUNTIME_SKILLS.issubset(selected)
+    )
+    operation_names = [
+        *selected,
+        *(SHARED_RUNTIME_DIRS if include_shared_runtime else ()),
+    ]
+
+    for name in operation_names:
         source = source_root / name
         destination = target_root / name
 

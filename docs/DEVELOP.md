@@ -61,9 +61,11 @@ uv run clipsmith export okf "<bundle_dir>" "<okf_workspace>" --json
 
 ## Provider Execution
 
-The only supported provider execution mode is `skill`. Keep browser, session,
-proxy, CDP, and login strategy in provider skills unless a real non-agent
-adapter exists.
+The only supported provider execution mode is `skill`. Provider skills own
+platform behavior such as login prompts, risk handling, navigation, extraction,
+and output contracts. Shared browser plumbing such as CDP probing, Chrome
+startup, proxy flags, and optional browser shutdown belongs in the shared
+browser runtime when more than one provider needs it.
 
 ## Skill Contract
 
