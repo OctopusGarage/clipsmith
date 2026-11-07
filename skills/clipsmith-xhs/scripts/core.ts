@@ -1,10 +1,12 @@
 import { constants, createWriteStream } from "node:fs";
+import { execFile } from "node:child_process";
 import { access, mkdir, rename, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { extname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import { promisify } from "node:util";
 import type { Page } from "playwright";
 export {
   closeBrowserProcessOverCdp,
@@ -17,6 +19,7 @@ export const DEFAULT_CDP_PORT = "9223";
 
 const PAGE_EVALUATE_RUNTIME =
   "globalThis.__name = globalThis.__name || function(target) { return target; };";
+const execFileAsync = promisify(execFile);
 
 /**
  * tsx preserves function names with an esbuild `__name` helper. Playwright
@@ -30,7 +33,7 @@ export async function installPageEvaluateRuntime(page: Page): Promise<void> {
 
 const LOGIN_HINTS = ["登录", "扫码登录", "Sign in", "Login", "手机号登录", "验证码登录"];
 const IMAGE_EXT_HINTS = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".avif"];
-const VIDEO_EXT_HINTS = [".mp4", ".mov", ".webm", ".m3u8"];
+const VIDEO_EXT_HINTS = [".mp4", ".mov", ".webm", ".m3u8", ".m4s"];
 
 function isXiaohongshuCdn(url: string): boolean {
   try {
@@ -602,7 +605,12 @@ export async function extractPostSnapshot(page: Page, noteId: string): Promise<P
     ...loadedVideoUrls.map((url) => ({ url, source: "player" as const })),
   ];
   const selectedVideoCandidate = selectPreferredPostVideoCandidate(videoCandidates);
-  const videoUrls = selectedVideoCandidate ? [selectedVideoCandidate.url] : [];
+  const companionAudioCandidate = selectedVideoCandidate && isDashVideoUrl(selectedVideoCandidate.url)
+    ? videoCandidates.find((candidate) => isDashAudioUrl(candidate.url))
+    : undefined;
+  const videoUrls = selectedVideoCandidate
+    ? [selectedVideoCandidate.url, ...(companionAudioCandidate ? [companionAudioCandidate.url] : [])]
+    : [];
 
   return {
     title: normalizeWhitespace(snapshot.title || ""),
@@ -1354,11 +1362,21 @@ export function filterPostVideoUrls(urls: string[]): string[] {
       lower.includes("sns-video") ||
       lower.includes("xhscdn") ||
       lower.includes(".mp4") ||
+      lower.includes(".m4s") ||
+      lower.includes(".m4a") ||
       lower.includes(".m3u8") ||
       lower.includes(".mov") ||
       lower.includes(".webm")
     );
   });
+}
+
+function isDashVideoUrl(url: string): boolean {
+  return inferExtensionFromUrl(url) === ".m4s";
+}
+
+function isDashAudioUrl(url: string): boolean {
+  return inferExtensionFromUrl(url) === ".m4a";
 }
 
 function videoUrlQualityScore(url: string): number {
@@ -1413,6 +1431,7 @@ export function selectPreferredPostVideoCandidate(
   const byIdentity = new Map<string, VideoCandidate>();
   for (const candidate of candidates) {
     if (!filteredUrls.has(candidate.url)) continue;
+    if (isDashAudioUrl(candidate.url)) continue;
     const identity = toUrlIdentity(candidate.url);
     const existing = byIdentity.get(identity);
     if (!existing) {
@@ -1462,11 +1481,15 @@ export function selectPreferredPostVideoUrls(
   stateVideoUrls: string[],
   loadedVideoUrls: string[]
 ): string[] {
-  const selected = selectPreferredPostVideoCandidate([
+  const candidates = [
     ...stateVideoUrls.map((url) => ({ url, source: "state" as const })),
     ...loadedVideoUrls.map((url) => ({ url, source: "player" as const })),
-  ]);
-  return selected ? [selected.url] : [];
+  ];
+  const selected = selectPreferredPostVideoCandidate(candidates);
+  if (!selected) return [];
+  if (!isDashVideoUrl(selected.url)) return [selected.url];
+  const companionAudio = candidates.find((candidate) => isDashAudioUrl(candidate.url));
+  return companionAudio ? [selected.url, companionAudio.url] : [selected.url];
 }
 
 export async function isLoginRequired(page: Page, snapshot: PostSnapshot): Promise<boolean> {
@@ -1487,6 +1510,7 @@ const RATE_LIMIT_HINTS = ["操作过于频繁", "请稍后再试", "too many req
 const CAPTCHA_HINTS = ["滑块验证", "人机验证", "captcha", "robot"];
 const CAPTCHA_VERIFY_HINTS = ["安全验证", "验证码"]; // only trigger when NOT inside a login modal
 const LOGIN_MODAL_HINTS = ["手机号登录", "扫码登录", "登录继续查看"];
+const LOGIN_VERIFICATION_CODE_COPY = ["获取验证码", "手机验证码"];
 const ACCOUNT_ANOMALY_HINTS = ["账号异常", "账号被限制", "安全提醒", "suspicious activity"];
 
 /**
@@ -1536,28 +1560,40 @@ export async function dismissLoginModalIfPresent(page: Page): Promise<boolean> {
  */
 export async function checkForRiskSignals(page: Page): Promise<void> {
   const url = page.url();
-  const bodyText = await page.evaluate(() => document.body?.innerText?.slice(0, 3000) ?? "");
+  const { bodyText, postTexts } = await page.evaluate(() => ({
+    bodyText: document.body?.innerText ?? "",
+    postTexts: Array.from(document.querySelectorAll(".note-content, .note-text"))
+      .map((element) => (element as HTMLElement).innerText?.trim() ?? "")
+      .filter(Boolean),
+  }));
+  const riskText = postTexts
+    .reduce((text, postText) => text.replaceAll(postText, ""), bodyText)
+    .slice(0, 3000);
 
   // Hard CAPTCHA hints (always a signal regardless of context)
-  if (includesAny(bodyText, CAPTCHA_HINTS) || /captcha|verify/i.test(url)) {
+  if (includesAny(riskText, CAPTCHA_HINTS) || /captcha|verify/i.test(url)) {
     throw new Error(
       "[HARD SIGNAL] CAPTCHA or verification challenge detected. Complete it manually in the browser, then retry."
     );
   }
   // "安全验证" / "验证码" are CAPTCHA signals only when NOT inside a login modal
   // (XHS login popup shows "手机验证码" as a login option — this is NOT a CAPTCHA)
-  const isLoginModal = includesAny(bodyText, LOGIN_MODAL_HINTS);
-  if (!isLoginModal && includesAny(bodyText, CAPTCHA_VERIFY_HINTS)) {
+  const isLoginModal = includesAny(riskText, LOGIN_MODAL_HINTS);
+  const verificationText = LOGIN_VERIFICATION_CODE_COPY.reduce(
+    (text, loginCopy) => text.replaceAll(loginCopy, ""),
+    riskText
+  );
+  if (!isLoginModal && includesAny(verificationText, CAPTCHA_VERIFY_HINTS)) {
     throw new Error(
       "[HARD SIGNAL] CAPTCHA or verification challenge detected. Complete it manually in the browser, then retry."
     );
   }
-  if (includesAny(bodyText, RATE_LIMIT_HINTS)) {
+  if (includesAny(riskText, RATE_LIMIT_HINTS)) {
     throw new Error(
       "[HARD SIGNAL] Rate-limit detected. Wait before retrying — do not retry in the current session."
     );
   }
-  if (includesAny(bodyText, ACCOUNT_ANOMALY_HINTS)) {
+  if (includesAny(riskText, ACCOUNT_ANOMALY_HINTS)) {
     throw new Error(
       "[HARD SIGNAL] Account anomaly or security warning detected. Check the browser manually before retrying."
     );
@@ -1771,6 +1807,82 @@ async function downloadVideoStream(
   } catch (error) {
     throw error;
   }
+}
+
+async function downloadDashComponent(
+  page: Page,
+  url: string,
+  partTarget: string,
+  kind: "video" | "audio"
+): Promise<void> {
+  const cookie = await browserCookieHeader(page, url);
+  const headers: Record<string, string> = { referer: page.url() };
+  if (cookie) headers.cookie = cookie;
+
+  const response = await fetch(url, { headers });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const contentType = (response.headers.get("content-type") || "").toLowerCase();
+  const acceptable =
+    contentType.startsWith(`${kind}/`) ||
+    contentType.includes("application/octet-stream") ||
+    (kind === "video" ? isDashVideoUrl(url) : isDashAudioUrl(url));
+  if (!acceptable) {
+    throw new Error(`Not a ${kind} response: ${contentType || "unknown"}`);
+  }
+
+  if (response.body) {
+    await pipeline(Readable.fromWeb(response.body), createWriteStream(partTarget));
+  } else {
+    await writeFile(partTarget, Buffer.from(await response.arrayBuffer()));
+  }
+}
+
+async function downloadDashVideo(
+  page: Page,
+  videoUrl: string,
+  audioUrl: string,
+  outputDir: string,
+  index: number,
+  overwrite: boolean,
+  probeVideo: (path: string) => Promise<VideoProbe>
+): Promise<{ path: string; url: string; probe: VideoProbe }> {
+  const stem = `video-${String(index).padStart(3, "0")}`;
+  const target = resolve(outputDir, `${stem}.mp4`);
+  await assertCanWriteTarget(target, overwrite);
+
+  const videoPart = resolve(outputDir, `${stem}.m4s.part`);
+  const audioPart = resolve(outputDir, `${stem}.m4a.part`);
+  const outputPart = `${target}.part`;
+  await downloadDashComponent(page, videoUrl, videoPart, "video");
+  await downloadDashComponent(page, audioUrl, audioPart, "audio");
+  await execFileAsync(
+    "ffmpeg",
+    [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-y",
+      "-i",
+      videoPart,
+      "-i",
+      audioPart,
+      "-map",
+      "0:v:0",
+      "-map",
+      "1:a:0",
+      "-c",
+      "copy",
+      "-f",
+      "mp4",
+      outputPart,
+    ],
+    { maxBuffer: 8 * 1024 * 1024 }
+  );
+  const probe = await probeVideo(outputPart);
+  await rename(outputPart, target);
+  await unlink(videoPart).catch(() => undefined);
+  await unlink(audioPart).catch(() => undefined);
+  return { path: target, url: videoUrl, probe };
 }
 
 async function downloadOne(
@@ -2098,8 +2210,33 @@ export async function downloadVideos(
   const saved: Array<{ path: string; url: string; probe: VideoProbe }> = [];
   const failed: DownloadFailure[] = [];
 
+  const filteredUrls = filterPostVideoUrls(urls);
+  const dashVideoUrl = filteredUrls.find(isDashVideoUrl);
+  const dashAudioUrl = filteredUrls.find(isDashAudioUrl);
+  if (dashVideoUrl && dashAudioUrl) {
+    try {
+      saved.push(
+        await downloadDashVideo(
+          page,
+          dashVideoUrl,
+          dashAudioUrl,
+          outputDir,
+          1,
+          overwrite,
+          probeVideo
+        )
+      );
+    } catch (error) {
+      failed.push({
+        url: dashVideoUrl,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    return { saved, failed };
+  }
+
   let index = 1;
-  for (const url of filterPostVideoUrls(urls)) {
+  for (const url of filteredUrls) {
     try {
       const item = await downloadVideoStream(page, url, outputDir, index, overwrite, probeVideo);
       saved.push(item);

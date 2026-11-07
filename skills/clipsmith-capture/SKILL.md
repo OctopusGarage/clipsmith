@@ -8,6 +8,22 @@ description: Capture a URL or local media input into a portable Clipsmith bundle
 Use this skill when the user wants to download, save, capture, archive, or OCR a
 post, article, or local media item into a Clipsmith bundle.
 
+## Recover Before Reporting Failure
+
+A provider script failure does not by itself establish that content is
+unavailable. Inspect the actual browser/local state and error, distinguish
+readable content from a real login/risk wall, and continue routine recovery
+within the user's authorized scope. Correct demonstrated local causes or make
+a small reversible repair to the existing provider, verify it, and resume the
+original capture and authorized sink. Preserve partial assets and unrelated
+edits. Do not ask the user to reconfirm an accessible link before investigating.
+
+Do not blindly retry or bypass platform protection. Escalate when a genuine
+login/CAPTCHA/account restriction requires user action, a required change is
+outside scope, or evidence-based investigation and repairs cease making progress.
+Explain the evidence, attempts, preserved files, and specific remaining blocker.
+For X captures, follow `clipsmith-x`'s `references/recovery.md`.
+
 ## Flow
 
 1. Start a job:

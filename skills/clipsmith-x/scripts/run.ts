@@ -108,7 +108,7 @@ const keepProcessAlive =
 // ---------------------------------------------------------------------------
 // Resolve target directory
 // ---------------------------------------------------------------------------
-const { canonicalizePostUrl, parseTweetId, extractHandleFromUrl } = await import('./core.js');
+const { canonicalizePostUrl, parseTweetId } = await import('./core.js');
 const { resolveAutoInbox } = await import('./inbox-target.js');
 
 const canonicalUrl = canonicalizePostUrl(postUrl);
@@ -117,14 +117,10 @@ let bundleDir = bundleDirArg;
 let autoSource: 'env' | 'cwd' | 'alcove' | undefined;
 
 if (!bundleDir && !noAutoInbox) {
-  const handle = (() => {
-    try { return extractHandleFromUrl(canonicalUrl); } catch { return undefined; }
-  })();
   const target = await resolveAutoInbox({
     platform: 'x',
-    // Match the existing inbox/x/<handle>-<tweetId>/ convention so the auto
-    // path produces the same leaf as a manual --bundle-dir would.
-    leaf: handle ? `${handle}-${tweetId}` : tweetId,
+    // Stable platform-id naming matches capture.json.id across inbox sinks.
+    leaf: `x-${tweetId}`,
     cwd: process.cwd(),
     env: process.env,
   });

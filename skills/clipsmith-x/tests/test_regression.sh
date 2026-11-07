@@ -50,6 +50,7 @@ if ! grep -q "browser.close" scripts/executor.ts; then
 fi
 node scripts/eval.mjs --help >/dev/null
 node scripts/eval.mjs --fixture "$EVAL_PROFILE" --profile "$EVAL_PROFILE" >/dev/null
+npx tsx --test "$ROOT_DIR/tests/post-dom.test.ts" >/dev/null
 npx tsx --test "$ROOT_DIR/../_shared/browser-runtime/tests/cdp.test.ts" >/dev/null
 
 # 3. tsx availability

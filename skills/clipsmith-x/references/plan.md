@@ -148,3 +148,20 @@ node scripts/download.mts "https://x.com/USER/status/123456" ~/my-posts
 - Connects to existing Chrome at `localhost:9222` — never closes it
 - Output: `<output-dir>/<tweet_id>/post.md` + `image_01.jpg`, etc.
 - Safe to run repeatedly — reuses existing tab if URL matches
+
+
+### Modern Public Post Markup
+
+Modern public pages use `article[class~="group/post"]` and `.whitespace-pre-wrap`
+without legacy `data-testid` attributes. `scripts/post-dom.ts` recognizes the
+requested permalink, reads the author's own text/media, and preserves quoted
+source links without taking their previews or replies as original-post assets.
+Login controls alone do not block capture when the public body is readable.
+
+Before asking a user to recheck an accessible link, inspect the existing tab and
+the executor's diagnostics (URL, title, article count, legacy tweet count).
+A selector mismatch is an extraction failure, not evidence of an unavailable post.
+
+Run `npx tsx --test tests/post-dom.test.ts` for offline synthetic DOM regressions;
+this includes legacy pages, modern public pages, delayed rendering, quote/reply
+isolation, media detection, login walls and existing-bundle preservation.

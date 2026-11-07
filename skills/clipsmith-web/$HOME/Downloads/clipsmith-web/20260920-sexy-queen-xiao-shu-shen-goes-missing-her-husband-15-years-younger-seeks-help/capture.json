@@ -1,0 +1,39 @@
+{
+  "schema": "clipsmith.capture_bundle.v1",
+  "id": "20260920-sexy-queen-xiao-shu-shen-goes-missing-her-husband-15-years-younger-seeks-help",
+  "platform": "web",
+  "source_url": "https://www.vietnam.vn/en/nu-hoang-goi-cam-tieu-thuc-than-mat-tich-chong-kem-15-tuoi-cau-cuu",
+  "canonical_url": "https://www.vietnam.vn/en/nu-hoang-goi-cam-tieu-thuc-than-mat-tich-chong-kem-15-tuoi-cau-cuu",
+  "title": "'Sexy Queen' Xiao Shu-shen goes missing, her husband, 15 years younger, seeks help.",
+  "author": "vietnam.vn",
+  "published_at": "2026-09-08T05:21:00+00:00",
+  "captured_at": "2026-09-20T05:28:52.770Z",
+  "content_files": [
+    {
+      "path": "summary.md",
+      "kind": "summary",
+      "required_for_review": true
+    },
+    {
+      "path": "post.md",
+      "kind": "post",
+      "required_for_review": true
+    }
+  ],
+  "assets": [
+    {
+      "path": "raw/source.html",
+      "kind": "web-cleaned-html"
+    },
+    {
+      "path": "raw/rendered.txt",
+      "kind": "web-rendered-text"
+    },
+    {
+      "path": "raw/metadata.json",
+      "kind": "web-metadata"
+    }
+  ],
+  "warnings": [],
+  "status": "complete"
+}

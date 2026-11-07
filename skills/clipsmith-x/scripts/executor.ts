@@ -1,3 +1,4 @@
+import { readModernPost, hasReadablePost } from "./post-dom.js";
 import { chromium, type ChromiumBrowser, type Page } from "playwright";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
@@ -37,7 +38,10 @@ import {
 // ---------------------------------------------------------------------------
 export type PostType = "article" | "withMedia" | "textOnly";
 
-export async function detectPostType(page: Page): Promise<PostType> {
+export async function detectPostType(page: Page, tweetId?: string): Promise<PostType> {
+  const id = tweetId ?? parseTweetId(page.url());
+  const modern = await page.evaluate(readModernPost, id);
+  if (modern) return modern.imageUrls.length || modern.videoUrls.length ? "withMedia" : "textOnly";
   return page.evaluate(() => {
     const isArticle = !!document.querySelector('[data-testid="twitterArticleReadView"]');
     if (isArticle) return "article";
@@ -175,6 +179,13 @@ export async function execute(
   const bundleDir = inputs.bundle_dir?.trim()
     ? await ensureAbsolutePath(inputs.bundle_dir.trim())
     : undefined;
+  if (bundleDir && !overwrite) {
+    const exists = await stat(bundleDir).then(() => true, (error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return false;
+      throw error;
+    });
+    if (exists) throw new Error(`Bundle directory already exists: ${bundleDir}. Use --overwrite to replace it.`);
+  }
   const resolveNoteDir = (): string =>
     bundleDir ?? join(ensureAbsolutePath(inputs.output_dir ?? "~/Downloads/x"), tweetId);
 
@@ -210,14 +221,13 @@ export async function execute(
     `http://localhost:${cdpPort}`
   )) as ChromiumBrowser;
   try {
-    // Reuse the user's existing x.com tab if any. Never open a new tab —
-    // that would yank focus from whatever the user was already doing.
+    // Reuse an X tab; otherwise create one without taking over unrelated tabs.
     const existingPages = browser.contexts()[0]?.pages() ?? [];
     const xPage = existingPages.find((p: Page) => {
       const u = p.url();
       return u.startsWith("https://x.com/") || u.startsWith("https://twitter.com/");
     });
-    let page = xPage ?? existingPages[0] ?? (await browser.newPage());
+    let page = xPage ?? (await browser.contexts()[0].newPage());
 
     // Navigate to the canonical post URL. If the existing tab is already
     // there, we leave it alone to avoid a redundant round-trip.
@@ -266,9 +276,11 @@ export async function execute(
     // Wait for tweet article to appear. If it never does (timeline view or
     // privacy wall), skip the live Chrome path and ask syndication instead.
     try {
-      await page.waitForSelector('article[data-testid="tweet"]', { timeout: 8000 });
+      await page.waitForFunction(hasReadablePost, tweetId, { timeout: 10000 });
     } catch {
-      log("[executor] tweet article never appeared — trying syndication");
+      const diagnostics = await page.evaluate(() => ({ title: document.title, url: location.href,
+        articles: document.querySelectorAll('article').length, legacyTweets: document.querySelectorAll('[data-testid="tweet"]').length }));
+      log(`[executor] target post not recognized: ${JSON.stringify(diagnostics)} — trying syndication`);
       try {
         const snapshot = await fetchSyndicationTweet(tweetId);
         const noteDir = resolveNoteDir();
@@ -320,7 +332,7 @@ export async function execute(
       }
     }
 
-    const postType = await detectPostType(page);
+    const postType = await detectPostType(page, tweetId);
     log(`[executor] post type: ${postType}`);
 
     const snapshot = await extractTweetSnapshot(page, tweetId);
@@ -616,7 +628,7 @@ async function finalizeCapture(args: {
         : snapshot.authorHandle,
       publishedAt: normalizePublishTime(snapshot.publishedAt),
       capturedAt: new Date().toISOString(),
-      overwrite: !!overwrite,
+      overwrite: true, // Raw files were created here by this run; normalize in-place.
       log: log ?? console.log,
     });
   }

@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
+import { promisify } from "node:util";
 import vm from "node:vm";
 
 import {
@@ -15,6 +17,8 @@ import {
   simulateVideoPlay,
 } from "../scripts/core";
 import { shouldPrimeVideoBeforeSnapshot } from "../scripts/executor";
+
+const execFileAsync = promisify(execFile);
 
 test("installPageEvaluateRuntime supports tsx-named callbacks in the browser realm", async () => {
   const core = await import("../scripts/core");
@@ -241,11 +245,68 @@ test("downloadVideos streams video with browser cookies and referer", async (t) 
     hasAudio: true,
   }));
 
-  assert.equal(result.failed.length, 0);
+  assert.equal(result.failed.length, 0, JSON.stringify(result.failed));
   assert.equal(result.saved.length, 1);
   assert.deepEqual([...await readFile(result.saved[0].path)], [0, 1, 2, 3]);
   assert.equal(requestHeaders.get("referer"), "https://www.xiaohongshu.com/explore/example");
   assert.equal(requestHeaders.get("cookie"), "web_session=abc; a1=def");
+});
+
+test("selectPreferredPostVideoUrls keeps the companion audio stream for DASH playback", () => {
+  const video =
+    "https://sns-video-v6.xhscdn.com/stream/1/110/3091/example_3091.m4s?sign=video";
+  const audio =
+    "https://sns-video-v6.xhscdn.com/stream/1/110/103/example_103.m4a?sign=audio";
+
+  assert.deepEqual(selectPreferredPostVideoUrls([], [video, audio]), [video, audio]);
+});
+
+test("downloadVideos muxes octet-stream DASH video and audio into a playable mp4", async (t) => {
+  const tmp = join(process.cwd(), ".tmp-video-dash-test");
+  await rm(tmp, { recursive: true, force: true });
+  await mkdir(tmp, { recursive: true });
+  t.after(() => rm(tmp, { recursive: true, force: true }));
+
+  const videoFixture = join(tmp, "fixture.m4s");
+  const audioFixture = join(tmp, "fixture.m4a");
+  await execFileAsync("ffmpeg", [
+    "-hide_banner", "-loglevel", "error", "-y",
+    "-f", "lavfi", "-i", "color=c=black:s=320x180:d=1",
+    "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-f", "mp4", videoFixture,
+  ]);
+  await execFileAsync("ffmpeg", [
+    "-hide_banner", "-loglevel", "error", "-y",
+    "-f", "lavfi", "-i", "sine=frequency=440:duration=1",
+    "-vn", "-c:a", "aac", "-f", "mp4", audioFixture,
+  ]);
+
+  const videoBytes = await readFile(videoFixture);
+  const audioBytes = await readFile(audioFixture);
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (url) => {
+    const bytes = String(url).includes(".m4a") ? audioBytes : videoBytes;
+    return new Response(bytes, {
+      status: 200,
+      headers: { "content-type": "application/octet-stream" },
+    });
+  }) as typeof fetch;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const page = {
+    url: () => "https://www.xiaohongshu.com/explore/example",
+    context: () => ({ cookies: async () => [] }),
+  };
+  const videoUrl = "https://sns-video-v6.xhscdn.com/stream/example.m4s?sign=video";
+  const audioUrl = "https://sns-video-v6.xhscdn.com/stream/example.m4a?sign=audio";
+
+  const result = await downloadVideos(page as never, [videoUrl, audioUrl], tmp, false);
+
+  assert.equal(result.failed.length, 0, JSON.stringify(result.failed));
+  assert.equal(result.saved.length, 1);
+  assert.equal(result.saved[0].probe.hasAudio, true);
+  assert.match(result.saved[0].path, /video-001\.mp4$/);
 });
 
 test("downloadVideos preserves partial data after interruption", async (t) => {

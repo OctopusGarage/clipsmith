@@ -17,18 +17,40 @@ metadata:
 
 > **MANDATORY — load `references/plan.md` before any browser or extraction action begins.**
 
-## ⚠️ NEVER WRITE YOUR OWN SCRIPT
+## Use and Maintain the Existing Downloader
 
-**The download logic is fully implemented. Always invoke the existing script — do NOT write a new one.**
+**Start with the existing downloader. If it fails, diagnose and repair that implementation rather than abandoning the capture or building a competing downloader.**
 
 ```bash
 cd <clipsmith-repo>/skills/clipsmith-x
 npx tsx scripts/run.ts \
   --post-url "<url>" \
-  --output-dir "$HOME/Downloads/x"
+  --bundle-dir "/tmp/x-<tweet_id>"
 ```
 
-The sections below (image extraction, anti-detection, MHTML generation) are **implementation documentation for the script itself**, not instructions for you to re-implement. If the script doesn't exist or can't run, report the error — never substitute with hand-written Playwright code.
+The sections below (image extraction, anti-detection, MHTML generation) are **implementation documentation for the script itself**, not instructions for you to re-implement. If the script is missing or cannot run, inspect the skill/source installation and dependencies first. A recoverable local error is a reason to repair the existing workflow, not to stop. Do not replace it with an untested standalone downloader.
+
+When writing to a KB inbox, use `<platform>-<stable-id>` for both the directory
+and `capture.json.id` (for X: `x-<tweet_id>`). Prefer an explicit `--bundle-dir`
+to choose the destination; it produces a normalized bundle in one run. An
+existing directory requires `--overwrite`; never overwrite a previous capture
+just to retry a failed extraction.
+
+## Readable Public Pages and Extraction Failures
+
+X serves both legacy `data-testid="tweet"` markup and modern `article.group/post`
+markup. Login/signup buttons beside a readable public post are not a login wall.
+The downloader supports both layouts and scopes modern content by the target
+post permalink, excluding replies and nested quoted-post media. Quoted source
+links are kept separately from the post body; unavailable engagement counts are
+omitted rather than guessed as zero.
+
+A downloader error is not the end of the user's task. On failure, load
+`references/recovery.md` and continue autonomously through diagnosis, a justified
+repair, verification, and the original capture/authorized sink. Do not wait for
+the user to say “it opens for me” or ask them to confirm a routine local fix.
+This applies to unfamiliar future layouts and runtime errors, not just the
+specific selectors documented above. Preserve partial assets throughout.
 
 ## Clipsmith Bundle Normalization
 
@@ -141,7 +163,7 @@ X applies behavioral analysis to detect automation. Violations of these principl
 - Before archiving, automatically removes UI elements unrelated to post content (login buttons, nav bars, recommended content, etc.)
 - `cleanupPageForArchive` removes: LoginForm, signup links, banner nav, sidebarColumn, app-bar, etc.
 - Text-only tweets (no images/video) skip MHTML and only generate `post.md`
-- X Notes and posts with images/video generate `article.mhtml` + `post.md`
+- X Notes generate `article.mhtml` + `post.md`; regular media posts save media files and `post.md` without MHTML.
 
 **Video:**
 - Before downloading, simulate user engagement: bring the tab to front, click the video element, wait 3–5 seconds (randomized) for buffering.
@@ -164,11 +186,11 @@ X applies behavioral analysis to detect automation. Violations of these principl
 
 A run is successful only when all conditions hold:
 
-1. An output folder is created: `<output_dir>/<YYYYMMDD>-<tweet_id>/`
+1. An output folder is created at the explicit `--bundle-dir`, or `<output_dir>/<tweet_id>/` for raw downloads. KB inbox bundles use `x-<tweet_id>` for both the directory and `capture.json.id`.
 2. `post.md` is generated in the folder with author, text, timestamp, URL.
 3. Post image files are saved as `image_01.jpg`, `image_02.jpg`, etc.
 4. Post video file is saved as `video.mp4` when the post contains video.
-5. `article.mhtml` is generated for X Notes and posts with images/video; text-only tweets omit it.
+5. `article.mhtml` is generated for X Notes; regular media and text-only posts omit it.
 6. Files are deduplicated by content hash.
 7. URL output and logs use canonical `x.com` form.
 
@@ -190,7 +212,7 @@ A run is successful only when all conditions hold:
 | When | Must load | Do NOT load |
 |------|-----------|-------------|
 | Always — at skill invocation start | `references/plan.md` | `references/architecture.md` |
-| Extraction returns wrong count or fails | `references/architecture.md` | — |
+| Extraction returns wrong count or fails | `references/recovery.md`, then architecture if needed | — |
 | Video download unclear | `references/architecture.md` | — |
 
 See Resources table above for conditional loads.

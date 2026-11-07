@@ -1,3 +1,4 @@
+import { readModernPost } from "./post-dom.js";
 import { type Page, CDPSession } from "playwright";
 import { writeFile, stat } from "node:fs/promises";
 import { join } from "node:path";
@@ -321,6 +322,8 @@ export async function detectLoginState(page: Page): Promise<LoginState> {
     return "loggedOut";
   }
   return page.evaluate(() => {
+    // Public posts remain readable beside login/signup controls.
+    if (document.querySelector('article[class~="group/post"] .whitespace-pre-wrap, article[data-testid="tweet"] [data-testid="tweetText"]')) return "loggedIn";
     // X auth UI markers — checked by class or testid so they keep working if
     // copy changes.  `[data-testid="LoginForm"]` is the legacy form;
     // `[data-testid="google_one_tap_container"]` and `a[href*="/i/flow/signup"]`
@@ -426,15 +429,16 @@ export function mediaUrlIdentity(url: string): string {
 // Extraction: Tweet snapshot
 // ---------------------------------------------------------------------------
 export async function extractTweetSnapshot(page: Page, tweetId: string): Promise<TweetSnapshot> {
+  const modern = await page.evaluate(readModernPost, tweetId);
   // Article pages use twitterArticleReadView; tweet pages use article[data-testid="tweet"]
   const isArticle = await page.evaluate(
     () => !!document.querySelector('[data-testid="twitterArticleReadView"]')
   );
-  if (!isArticle) {
+  if (!isArticle && !modern) {
     await page.waitForSelector('article[data-testid="tweet"]', { timeout: 15000 });
   }
 
-  const snapshot = await page.evaluate((id: string) => {
+  const snapshot = modern ?? await page.evaluate((id: string) => {
     const isArticlePage = !!document.querySelector('[data-testid="twitterArticleReadView"]');
     // On tweet pages the article is article[data-testid="tweet"]; on article pages it's the read view container
     const tweetArticle = document.querySelector(
