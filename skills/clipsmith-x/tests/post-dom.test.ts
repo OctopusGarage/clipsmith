@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import { extractTweetSnapshot, detectLoginState } from '../scripts/core.js';
-import { hasReadablePost } from '../scripts/post-dom.js';
+import { hasReadablePost, readModernPost } from '../scripts/post-dom.js';
 import { detectPostType, execute } from '../scripts/executor.js';
 let browser: Browser;
 let page: Page;
@@ -68,4 +68,14 @@ test('actual login page without readable content is still a login wall', async (
  await page.setContent('<form data-testid="LoginForm">Log in</form>');
  assert.equal(await detectLoginState(page), 'loggedOut');
  assert.equal(await page.evaluate(hasReadablePost, '123'), false);
+});
+
+test('modern external link cards outside body are preserved once for expansion', async () => {
+ await page.setContent(html.replace('<a href="/writer/status/123">', '<a href="https://t.co/example">Project link</a><a href="https://t.co/example">From example.org</a><a href="/writer/status/123">'));
+ const s = await page.evaluate(readModernPost, '123');
+ assert.ok(s);
+ assert.ok(s.text.includes('https://t.co/example'));
+ assert.equal(s.text.split('https://t.co/example').length - 1, 1);
+ assert.ok(s.tcoHrefs.includes('https://t.co/example'));
+ assert.ok(!s.tcoHrefs.includes('/writer'));
 });

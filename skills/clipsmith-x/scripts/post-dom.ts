@@ -23,11 +23,17 @@ export function readModernPost(tweetId: string): (TweetSnapshot & { tcoHrefs: st
   const quoteLinks = Array.from(article.querySelectorAll('article a[href*="/status/"]')).map(a => new URL(a.getAttribute('href')!, 'https://x.com').href);
   const quotes = [...new Set(quoteLinks)].filter(url => !url.includes(`/status/${tweetId}`));
   const body = textEl?.textContent?.trim() ?? '';
-  const text = body + (quotes.length ? '\n\nQuoted sources:\n' + quotes.map(url => `- ${url}`).join('\n') : '');
+  const externalLinks = [...new Set(links.map(a => a.getAttribute('href') ?? '').filter(href => {
+    if (!/^https?:\/\//.test(href)) return false;
+    const host = new URL(href).hostname;
+    return !['x.com', 'www.x.com', 'twitter.com', 'www.twitter.com'].includes(host);
+  }))];
+  const cardLinks = externalLinks.filter(url => !body.includes(url));
+  const text = body + (cardLinks.length ? '\n\nLinks:\n' + cardLinks.map(url => `- ${url}`).join('\n') : '') + (quotes.length ? '\n\nQuoted sources:\n' + quotes.map(url => `- ${url}`).join('\n') : '');
   return { tweetId, authorHandle: handle, authorName, text, publishedAt,
     likeCount: '', retweetCount: '', replyCount: '', imageUrls: [...new Set(imageUrls)],
     videoUrls: [...new Set(videoUrls)], isArticle: false, articleTitle: '',
-    tcoHrefs: Array.from(textEl?.querySelectorAll('a[href]') ?? []).map(a => a.getAttribute('href') ?? '') };
+    tcoHrefs: externalLinks };
 }
 
 /** Readiness covers both page generations without waiting for hydration/testids. */
