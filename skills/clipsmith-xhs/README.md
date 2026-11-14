@@ -38,7 +38,7 @@ When `--flat true` is set, it writes directly into `--output_dir`.
 |------|---------|-------|
 | `--profile_dir` | `~/.chrome-labali-no-proxy` | Chrome user-data-dir |
 | `--cdp_port` | `9223` | Chrome DevTools port |
-| `--proxy_mode` | `none` | `none`, `system`, or `custom` |
+| `--proxy_mode` | `system` | `none`, `system`, or `custom` |
 | `--proxy_server` | unset | Required when `proxy_mode=custom` |
 | `--close_browser_on_success` | `false` | Close the connected CDP Chrome only after a fully successful capture |
 | `--timeout_ms` | `90000` | Navigation and extraction timeout |
@@ -60,8 +60,7 @@ Default startup:
 ```bash
 open -na "Google Chrome" --args \
   --remote-debugging-port=9223 \
-  --user-data-dir="$HOME/.chrome-labali-no-proxy" \
-  --no-proxy-server
+  --user-data-dir="$HOME/.chrome-labali-no-proxy"
 ```
 
 The runner reuses an existing XHS tab when possible. If no XHS tab exists, it

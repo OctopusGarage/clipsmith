@@ -84,7 +84,7 @@ the source repo. Packaged skill installs may omit eval fixtures and baselines.
 
 - Use browser automation only (Playwright over CDP).
 - Reuse authenticated Chrome session via CDP startup:
-  `open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir="$HOME/.chrome-labali-no-proxy" --no-proxy-server`
+  `open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir="$HOME/.chrome-labali-no-proxy"`
 - Extract article content from WeChat DOM: title, account name, author, publish time, content text, images.
 - Images are lazy-loaded via `data-src` — always prefer `data-src` over `src`.
 - Download only images from `mmbiz.qpic.cn` (skip avatars from `mmbiz.qlogo.cn`).

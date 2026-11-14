@@ -80,7 +80,7 @@ Other options:
   --output-dir <dir>    Legacy raw-stage directory; ignored when --bundle-dir
                          or auto-inbox kicks in.
   --cdp-port <9222>     Chrome DevTools Protocol port for live capture.
-  --profile-dir <dir>   Chrome profile directory (--no-proxy-server profile by default).
+  --profile-dir <dir>   Chrome profile directory (inherits the system proxy by default).
   --timeout-ms <ms>     Per-page-load timeout.
   --keep-process-alive  Skip Playwright CDP disconnect (rarely needed).
   --help                Show this message.

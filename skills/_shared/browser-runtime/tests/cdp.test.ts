@@ -32,7 +32,10 @@ class FakeCloseWebSocket {
 }
 
 test("getChromeProxyArgs maps none/system/custom modes", () => {
-  assert.deepEqual(getChromeProxyArgs(undefined, undefined), ["--no-proxy-server"]);
+  assert.deepEqual(getChromeProxyArgs(undefined, undefined), []);
+  assert.deepEqual(getChromeProxyArgs("", undefined), []);
+  assert.deepEqual(getChromeProxyArgs("  ", undefined), []);
+  assert.deepEqual(getChromeProxyArgs("none", undefined), ["--no-proxy-server"]);
   assert.deepEqual(getChromeProxyArgs("system", undefined), []);
   assert.deepEqual(getChromeProxyArgs("custom", "http://127.0.0.1:7890"), [
     "--proxy-server=http://127.0.0.1:7890",

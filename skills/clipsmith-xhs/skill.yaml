@@ -24,8 +24,8 @@ inputs:
   proxy_mode:
     type: string
     required: false
-    default: none
-    description: Chrome proxy mode for auto-launched Chrome. Use none to pass --no-proxy-server, system to inherit the system proxy, or custom with proxy_server.
+    default: system
+    description: Chrome proxy mode for auto-launched Chrome; defaults to inheriting the system proxy. Use none to pass --no-proxy-server, system to inherit the system proxy, or custom with proxy_server.
   proxy_server:
     type: string
     required: false

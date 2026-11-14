@@ -12,6 +12,8 @@ permalink, author, media, and the actual exception. Reuse loaded content rather
 than reloading it. Small browser evaluation snippets for inspection are allowed;
 the prohibition on competing downloaders does not prohibit diagnosis.
 
+When ordinary Chrome loads media but the capture browser does not, inspect the actual browser process arguments and system proxy first. A reused CDP browser may still carry `--no-proxy-server` from an earlier launch; changing a default does not change that running process. Treat a routing mismatch as a local configuration cause, not evidence of an automation ban. Restart only the dedicated capture browser when authorized, preserving the profile and requested URL; do not alter system proxy settings.
+
 Distinguish a genuinely blocking login/risk page from a readable public post.
 Check whether the problem is page structure, delayed rendering, local runtime,
 media extraction, normalization, or destination handling. If selectors fail but

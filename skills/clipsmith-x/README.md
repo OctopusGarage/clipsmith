@@ -43,8 +43,7 @@ Chrome must be open with remote debugging. One-time setup:
 ```bash
 open -na "Google Chrome" --args \
   --remote-debugging-port=9222 \
-  --user-data-dir="$HOME/.chrome-labali" \
-  --no-proxy-server
+  --user-data-dir="$HOME/.chrome-labali"
 ```
 
 Then log into x.com in that Chrome window.

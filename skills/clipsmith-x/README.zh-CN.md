@@ -42,8 +42,7 @@ Chrome 需要开启远程调试并已登录 X。一次性配置：
 ```bash
 open -na "Google Chrome" --args \
   --remote-debugging-port=9222 \
-  --user-data-dir="$HOME/.chrome-labali" \
-  --no-proxy-server
+  --user-data-dir="$HOME/.chrome-labali"
 ```
 
 然后在打开的 Chrome 窗口中登录 x.com。

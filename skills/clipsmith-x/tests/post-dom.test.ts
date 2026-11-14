@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import { extractTweetSnapshot, detectLoginState } from '../scripts/core.js';
 import { hasReadablePost, readModernPost } from '../scripts/post-dom.js';
-import { detectPostType, execute } from '../scripts/executor.js';
+import { detectPostType, execute, finalizeCapture } from '../scripts/executor.js';
 let browser: Browser;
 let page: Page;
 let html: string;
@@ -78,4 +78,28 @@ test('modern external link cards outside body are preserved once for expansion',
  assert.equal(s.text.split('https://t.co/example').length - 1, 1);
  assert.ok(s.tcoHrefs.includes('https://t.co/example'));
  assert.ok(!s.tcoHrefs.includes('/writer'));
+});
+
+test('modern article without group class captures full rendered text and preserves article type', async () => {
+ await page.setContent(`<article class="flex flex-col"><a href="/writer">Test Writer</a><a href="/writer">@writer</a><div><h1>Article title</h1><p class="whitespace-pre-wrap">First paragraph.</p><h2>Second section</h2><pre>Complete prompt\nwith second line</pre><p>Final paragraph.</p><img src="https://pbs.twimg.com/media/cover.jpg"></div><a href="/writer/status/123">4:39 PM · Nov 6, 2026</a></article><article><p>Reply text</p></article>`);
+ assert.equal(await page.evaluate(hasReadablePost, '123'), true);
+ const s = await extractTweetSnapshot(page, '123');
+ assert.ok(s.text.includes('Final paragraph.'));
+ assert.ok(s.text.includes('Complete prompt\nwith second line'));
+ assert.ok(!s.text.includes('Reply text'));
+ assert.equal(s.articleTitle, 'Article title');
+ assert.equal(s.isArticle, true);
+ assert.equal(await detectPostType(page, '123'), 'article');
+});
+
+ test('failed media finalizes a partial bundle with the article title and failure evidence', async () => {
+ const dir = await mkdtemp(join(tmpdir(), 'clipsmith-x-partial-'));
+ try {
+  await finalizeCapture({postUrl:'https://x.com/writer/status/123',tweetId:'123',snapshot:{tweetId:'123',authorHandle:'writer',authorName:'Test Writer',text:'Full article body',publishedAt:'2026-11-06T08:39:00Z',likeCount:'',retweetCount:'',replyCount:'',imageUrls:['https://pbs.twimg.com/media/missing.jpg'],videoUrls:[],isArticle:true,articleTitle:'Article title'},postType:'article',sourceLabel:'live',noteDir:dir,files:[],failed:[{url:'https://pbs.twimg.com/media/missing.jpg',reason:'timeout'}],imageCount:0,videoCount:0,articleHtmlFile:undefined,bundleDir:dir,log:()=>{}});
+  const manifest=JSON.parse(await readFile(join(dir,'capture.json'),'utf8'));
+  assert.equal(manifest.status,'partial');
+  assert.equal(manifest.title,'Article title');
+  assert.equal(manifest.warnings.length,1);
+  assert.ok(manifest.warnings[0].includes('missing.jpg'));
+ } finally {await rm(dir,{recursive:true});}
 });

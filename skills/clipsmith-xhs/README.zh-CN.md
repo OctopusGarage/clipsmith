@@ -36,7 +36,7 @@ raw 目录包含：
 |------|--------|------|
 | `--profile_dir` | `~/.chrome-labali-no-proxy` | Chrome user-data-dir |
 | `--cdp_port` | `9223` | Chrome DevTools 端口 |
-| `--proxy_mode` | `none` | `none`、`system` 或 `custom` |
+| `--proxy_mode` | `system` | `none`、`system` 或 `custom` |
 | `--proxy_server` | 空 | `proxy_mode=custom` 时必填 |
 | `--close_browser_on_success` | `false` | 仅在完整成功后关闭当前 CDP Chrome |
 | `--timeout_ms` | `90000` | 导航和提取超时 |
@@ -59,8 +59,7 @@ OCR 和评论。
 ```bash
 open -na "Google Chrome" --args \
   --remote-debugging-port=9223 \
-  --user-data-dir="$HOME/.chrome-labali-no-proxy" \
-  --no-proxy-server
+  --user-data-dir="$HOME/.chrome-labali-no-proxy"
 ```
 
 runner 会优先复用已有小红书标签页；没有时，在同一个 CDP 浏览器中打开新标签。

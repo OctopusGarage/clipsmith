@@ -631,7 +631,7 @@ export async function browseAndCaptureImages(
       // Use Uint8Array inside evaluate() so Playwright can serialize it
       // (ArrayBuffer gets mangled by JSON serialization and can't be Buffer.from()'d)
       const uint8 = await page.evaluate(async (imgUrl: string) => {
-        const resp = await fetch(imgUrl, { cache: "force-cache" });
+        const resp = await fetch(imgUrl, { cache: "force-cache", signal: AbortSignal.timeout(15000) });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const ab = await resp.arrayBuffer();
         return Array.from(new Uint8Array(ab));

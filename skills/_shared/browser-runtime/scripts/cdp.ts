@@ -38,7 +38,7 @@ export function getChromeProxyArgs(
   proxyModeRaw: string | undefined,
   proxyServerRaw: string | undefined
 ): string[] {
-  const proxyMode = (proxyModeRaw || "none").trim().toLowerCase();
+  const proxyMode = (proxyModeRaw ?? "").trim().toLowerCase() || "system";
   if (proxyMode === "none") {
     return ["--no-proxy-server"];
   }

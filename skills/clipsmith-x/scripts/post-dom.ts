@@ -2,14 +2,16 @@ import type { TweetSnapshot } from './core.js';
 
 /** Runs inside the page. Use only rendered DOM, never X's private state/APIs. */
 export function readModernPost(tweetId: string): (TweetSnapshot & { tcoHrefs: string[] }) | null {
-  const candidates = Array.from(document.querySelectorAll('article[class~="group/post"]'));
+  const candidates = Array.from(document.querySelectorAll('article:not([data-testid="tweet"])'));
   const article = candidates.find(node => Array.from(node.querySelectorAll('a[href]')).some(a => {
     const path = new URL(a.getAttribute('href')!, 'https://x.com').pathname;
     return path.endsWith(`/status/${tweetId}`) && a.closest('article') === node;
   }));
   if (!article) return null;
   const ownElements = Array.from(article.querySelectorAll('*')).filter(el => el.closest('article') === article);
-  const textEl = ownElements.filter(el => el.matches('[data-testid="tweetText"], .whitespace-pre-wrap'))[0] as HTMLElement | undefined;
+  const heading = ownElements.find(el => el.matches('h1'));
+  const articleBody = heading?.parentElement as HTMLElement | undefined;
+  const textEl = articleBody ?? ownElements.filter(el => el.matches('[data-testid="tweetText"], .whitespace-pre-wrap'))[0] as HTMLElement | undefined;
   const media = ownElements.filter(el => el.matches('img, video'));
   const imageUrls = media.filter(el => el.tagName === 'IMG').map(el => el.getAttribute('src') ?? '').filter(src => /^https:\/\/pbs\.twimg\.com\/media\//.test(src));
   const videoUrls = media.filter(el => el.tagName === 'VIDEO').map(el => el.getAttribute('src') ?? '').filter(Boolean);
@@ -22,7 +24,7 @@ export function readModernPost(tweetId: string): (TweetSnapshot & { tcoHrefs: st
   const publishedAt = time?.getAttribute('datetime') ?? links.find(a => new URL(a.getAttribute('href')!, 'https://x.com').pathname.endsWith(`/status/${tweetId}`) && /\d.*·/.test(a.textContent ?? ''))?.textContent?.trim() ?? '';
   const quoteLinks = Array.from(article.querySelectorAll('article a[href*="/status/"]')).map(a => new URL(a.getAttribute('href')!, 'https://x.com').href);
   const quotes = [...new Set(quoteLinks)].filter(url => !url.includes(`/status/${tweetId}`));
-  const body = textEl?.textContent?.trim() ?? '';
+  const body = (textEl?.innerText ?? textEl?.textContent)?.trim() ?? '';
   const externalLinks = [...new Set(links.map(a => a.getAttribute('href') ?? '').filter(href => {
     if (!/^https?:\/\//.test(href)) return false;
     const host = new URL(href).hostname;
@@ -32,14 +34,14 @@ export function readModernPost(tweetId: string): (TweetSnapshot & { tcoHrefs: st
   const text = body + (cardLinks.length ? '\n\nLinks:\n' + cardLinks.map(url => `- ${url}`).join('\n') : '') + (quotes.length ? '\n\nQuoted sources:\n' + quotes.map(url => `- ${url}`).join('\n') : '');
   return { tweetId, authorHandle: handle, authorName, text, publishedAt,
     likeCount: '', retweetCount: '', replyCount: '', imageUrls: [...new Set(imageUrls)],
-    videoUrls: [...new Set(videoUrls)], isArticle: false, articleTitle: '',
+    videoUrls: [...new Set(videoUrls)], isArticle: !!heading, articleTitle: heading?.textContent?.trim() ?? '',
     tcoHrefs: externalLinks };
 }
 
 /** Readiness covers both page generations without waiting for hydration/testids. */
 export function hasReadablePost(tweetId: string): boolean {
   if (document.querySelector('[data-testid="twitterArticleReadView"], article[data-testid="tweet"]')) return true;
-  return Array.from(document.querySelectorAll('article[class~="group/post"]')).some(article =>
+  return Array.from(document.querySelectorAll('article:not([data-testid="tweet"])')).some(article =>
     Array.from(article.querySelectorAll('a[href]')).some(a =>
       a.closest('article') === article && new URL(a.getAttribute('href')!, 'https://x.com').pathname.endsWith(`/status/${tweetId}`)
     ) && Array.from(article.querySelectorAll('.whitespace-pre-wrap, img[src*="/media/"], video')).some(el =>

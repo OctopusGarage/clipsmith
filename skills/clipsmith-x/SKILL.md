@@ -131,7 +131,8 @@ This step is integrated into `extractTweetSnapshot()` and **must not be skipped*
 - Use browser automation only.
 - Do not use X private APIs.
 - Reuse manual-login session via unified Chrome CDP startup:
-  `open -na "Google Chrome" --args --remote-debugging-port=9222 --user-data-dir="$HOME/.chrome-labali" --no-proxy-server`.
+  `open -na "Google Chrome" --args --remote-debugging-port=9222 --user-data-dir="$HOME/.chrome-labali"`.
+- Inherit the system proxy by default. Do not add `--no-proxy-server` unless direct access was explicitly selected. When normal Chrome works but capture media times out, compare startup flags and proxy routing before repeating downloads.
 - Prefer semantic extraction from visible page state and loaded resources.
 - Download only target post assets: images plus optional post video.
 - Generate `post.md` for extracted text metadata.
@@ -199,7 +200,7 @@ A run is successful only when all conditions hold:
 - Default: guided browser flow + semantic extraction + authenticated media download.
 - Startup:
   - Check if CDP responds: `curl -s http://localhost:9222/json/version`
-  - If CDP NOT responding → auto-launch Chrome immediately: `open -na "Google Chrome" --args --remote-debugging-port=9222 --user-data-dir="$HOME/.chrome-labali" --no-proxy-server`; wait 3s; verify CDP responds
+  - If CDP NOT responding → auto-launch Chrome immediately: `open -na "Google Chrome" --args --remote-debugging-port=9222 --user-data-dir="$HOME/.chrome-labali"`; wait 3s; verify CDP responds
   - If Chrome with remote debugging is already running, reuse it
   - Find existing x.com tab → reuse it; if none → open new tab
   - Check login state; if wall detected → guide user to complete login manually; continue in same session

@@ -41,6 +41,7 @@ export type PostType = "article" | "withMedia" | "textOnly";
 export async function detectPostType(page: Page, tweetId?: string): Promise<PostType> {
   const id = tweetId ?? parseTweetId(page.url());
   const modern = await page.evaluate(readModernPost, id);
+  if (modern?.isArticle) return "article";
   if (modern) return modern.imageUrls.length || modern.videoUrls.length ? "withMedia" : "textOnly";
   return page.evaluate(() => {
     const isArticle = !!document.querySelector('[data-testid="twitterArticleReadView"]');
@@ -544,7 +545,7 @@ async function executeSyndicationOnly(args: {
 // DownloadPostResult. Used by both the live Chrome path and the syndication
 // fallback so downstream tooling sees a uniform shape.
 // ---------------------------------------------------------------------------
-async function finalizeCapture(args: {
+export async function finalizeCapture(args: {
   postUrl: string;
   tweetId: string;
   snapshot: TweetSnapshot;
@@ -602,6 +603,7 @@ async function finalizeCapture(args: {
         source: sourceLabel,
         captured_at: new Date().toISOString(),
         tweet_id: tweetId,
+        failed,
         ...(sourceLabel === "syndication" && {
           note: "captured anonymously via cdn.syndication.twimg.com; logged-in Chrome would yield additional engagement data and an MHTML archive",
         }),
@@ -622,15 +624,22 @@ async function finalizeCapture(args: {
       bundleDir,
       sourceUrl: postUrl,
       canonicalUrl: postUrl,
-      title: snapshot.text.slice(0, 80) || `tweet ${tweetId}`,
+      title: snapshot.articleTitle || snapshot.text.slice(0, 80) || `tweet ${tweetId}`,
       author: snapshot.authorName
         ? `${snapshot.authorName}${snapshot.authorHandle ? ` (@${snapshot.authorHandle})` : ""}`
         : snapshot.authorHandle,
       publishedAt: normalizePublishTime(snapshot.publishedAt),
       capturedAt: new Date().toISOString(),
+      status: failed.length ? "partial" : "complete",
       overwrite: true, // Raw files were created here by this run; normalize in-place.
       log: log ?? console.log,
     });
+    if (failed.length) {
+      const manifestPath = join(bundleDir, "capture.json");
+      const manifest = JSON.parse((await readFileBuf(manifestPath)).toString("utf8"));
+      manifest.warnings = [...(manifest.warnings ?? []), ...failed.map(item => `Missing media: ${item.url} — ${item.reason}`)];
+      await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
+    }
   }
 
   return {
@@ -665,6 +674,7 @@ async function runClipsmithNormalize(args: {
   author: string;
   publishedAt: string;
   capturedAt: string;
+  status: "complete" | "partial";
   overwrite: boolean;
   log: (msg: string) => void;
 }): Promise<void> {
@@ -679,7 +689,7 @@ async function runClipsmithNormalize(args: {
     "--author", args.author,
     "--published-at", args.publishedAt,
     "--captured-at", args.capturedAt,
-    "--status", "complete",
+    "--status", args.status,
   ];
   if (args.overwrite) cliArgs.push("--overwrite");
   cliArgs.push("--json");
