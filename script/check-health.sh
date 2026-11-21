@@ -51,6 +51,8 @@ required = {
     "clipsmith/skills/clipsmith-capture/SKILL.md",
     "clipsmith/skills/clipsmith-ocr/SKILL.md",
     "clipsmith/skills/clipsmith-web/SKILL.md",
+    "clipsmith/skills/clipsmith-web/scripts/browser.ts",
+    "clipsmith/skills/clipsmith-web/scripts/discover.ts",
     "clipsmith/skills/clipsmith-wechat/SKILL.md",
     "clipsmith/skills/clipsmith-x/SKILL.md",
     "clipsmith/skills/clipsmith-xhs/SKILL.md",

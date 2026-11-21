@@ -4,6 +4,7 @@ import json
 import os
 import platform
 import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -190,6 +191,8 @@ def doctor_checks() -> list[dict[str, str]]:
     checks.append(_directory_check("claude_skills_dir", claude_dir))
     checks.append(_directory_check("codex_skills_dir", codex_dir))
     checks.append(_platform_check())
+    if skills_source is not None:
+        checks.append(_web_runtime_check(skills_source / "clipsmith-web"))
     return checks
 
 
@@ -413,3 +416,30 @@ def _platform_check() -> dict[str, str]:
         "status": "missing",
         "message": "clipsmith-ocr currently requires macOS Vision APIs",
     }
+
+
+def _web_runtime_check(skill: Path) -> dict[str, str]:
+    check = {
+        "name": "clipsmith_web_runtime",
+        "status": "missing",
+        "message": "Run npm ci in the clipsmith-web skill directory, then scripts/browser.ts check.",
+    }
+    node = shutil.which("node")
+    if node is None or not (skill / "package.json").is_file():
+        return check
+    try:
+        result = subprocess.run(
+            [node, "-e", "require.resolve('playwright'); require.resolve('tsx')"],
+            cwd=skill,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return check
+    if result.returncode == 0:
+        check.update(
+            status="ok", message="Playwright and tsx resolve from the web skill runtime"
+        )
+    return check

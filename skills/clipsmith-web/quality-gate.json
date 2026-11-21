@@ -17,6 +17,10 @@
       "command": "bash skills/clipsmith-web/tests/test_regression.sh"
     },
     {
+      "name": "local browser extraction regressions",
+      "command": "npm --prefix skills/clipsmith-web test"
+    },
+    {
       "name": "known profile eval",
       "command": "node skills/clipsmith-web/scripts/eval.mjs --bundle_dir <bundle_dir> --profile <profile>",
       "profiles": [

@@ -8,7 +8,37 @@ description: Capture a generic web article into a Clipsmith bundle using browser
 Use this skill for generic web pages when no platform-specific Clipsmith skill
 matches.
 
-Run the bundled browser extractor first:
+Check the skill's runtime and browser mode before capture:
+
+```bash
+cd <clipsmith-repo>/skills/clipsmith-web
+npx --no-install tsx scripts/browser.ts get
+npx --no-install tsx scripts/browser.ts check
+```
+
+If the runtime is missing, run `npm ci` once in this skill directory before
+retrying. Do not reinstall dependencies during active captures.
+
+`check` verifies that Playwright and the configured browser are reachable. Missing
+runtime dependencies are a local setup failure, not a website challenge.
+
+For an existing normal Chrome remote-debugging session, explicitly configure its
+loopback endpoint (use the port of the session actually available):
+
+```bash
+npx tsx scripts/browser.ts set http://127.0.0.1:9222
+```
+
+The command saves a non-secret browser preference under the user configuration
+directory. `get` inspects it and `reset` restores the headless default. An explicit
+`CLIPSMITH_WEB_CDP_URL` overrides the saved endpoint. Do not guess a port, reuse
+an unrelated browser, inspect cookies, or print browser credentials. CDP mode uses
+the existing context and its browser identity. Successful operations close their
+own tab and disconnect without stopping Chrome. Normal Chrome is allowed a bounded wait for automatic verification to finish.
+A remaining verification challenge leaves that tab open for inspection and interaction before retrying. A configured but unavailable endpoint
+fails visibly rather than silently changing browser mode.
+
+Then run the bundled browser extractor:
 
 ```bash
 cd <clipsmith-repo>/skills/clipsmith-web
@@ -16,6 +46,16 @@ npx tsx scripts/run.ts \
   --url "<url>" \
   --output_dir "$HOME/Downloads/clipsmith-web"
 ```
+
+The extractor prefers explicit article-body and TOC-content containers so related-link sidebars
+cannot truncate the body. Text shorter than 500 characters is marked `partial`
+for review. A challenge in an isolated headless browser does not prove that normal
+Chrome is blocked. Inspect the same URL in the available normal browser; if it
+opens successfully, configure CDP and retry capture and discovery. If the actual
+normal-browser page asks for verification, interact with that visible page using
+available browser tools. Report a manual blocker only after inspecting the real
+page and verifying that agent interaction cannot complete it. Do not retry the
+same isolated headless session and call that a normal-browser check.
 
 Use `--preserve_full_raw` only when debugging a difficult capture or when the
 user explicitly asks for a fuller raw archive. The default output intentionally
@@ -117,6 +157,25 @@ Before reporting success, always run:
 uv run clipsmith validate-bundle "<bundle_dir>" --json
 ```
 
-Do not write knowledge records. If the page is login-gated, rate-limited, or
-blocked by bot protection, stop and report the condition instead of fabricating
-content.
+Do not write knowledge records. If the configured normal-browser page remains
+login-gated, rate-limited, or blocked after the inspection and interaction above,
+preserve the evidence and report that specific remaining condition. Never
+fabricate content or infer a normal-browser blocker from headless failure alone.
+
+
+For source maintenance, install locked dependencies with `npm ci`, install
+Chromium with `npx playwright install chromium` when absent, and run `npm test`.
+Local HTTP fixtures cover body extraction, partial bundles, and verification
+challenge diagnostics without contacting external websites.
+
+
+Blog discovery uses the same browser preference and lifecycle:
+
+```bash
+npx tsx scripts/discover.ts "https://example.com/blog" "/posts/"
+```
+
+It returns JSON article candidates from the main content, excluding navigation.
+Alcove delegates browser discovery here rather than maintaining a separate
+browser session strategy. A new skill installation needs `npm ci` in its own
+skill directory; copying skill files intentionally omits `node_modules`.

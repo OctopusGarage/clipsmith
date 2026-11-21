@@ -61,3 +61,19 @@ def test_uninstall_one_browser_skill_keeps_shared_runtime(tmp_path, monkeypatch)
 
     assert uninstall_report.targets[0].operations[0].skill == "clipsmith-xhs"
     assert shared.is_dir()
+
+
+def test_doctor_reports_missing_web_runtime(tmp_path, monkeypatch):
+    from clipsmith.installation import doctor_checks
+
+    source = tmp_path / "skills"
+    skill = source / "clipsmith-web"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("---\nname: clipsmith-web\n---\n")
+    (skill / "package.json").write_text('{"type":"module"}')
+    monkeypatch.setattr(
+        "clipsmith.installation._safe_find_skills_source", lambda: source
+    )
+    checks = {c["name"]: c for c in doctor_checks()}
+    assert checks["clipsmith_web_runtime"]["status"] == "missing"
+    assert "npm ci" in checks["clipsmith_web_runtime"]["message"]

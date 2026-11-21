@@ -3,7 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { gzip } from 'node:zlib';
-import { chromium } from 'playwright';
+import { openBrowserPage, verificationMessage, navigateBrowser } from './browser.js';
 
 type Args = Record<string, string | boolean>;
 
@@ -17,6 +17,7 @@ type CaptureSnapshot = {
   sourceHtml: string;
   renderedText: string;
   fullHtml: string;
+  browserMode: string;
 };
 
 function parseArgs(argv: string[]): Args {
@@ -77,12 +78,15 @@ function pruneChromeText(value: string): string {
   ]);
   const stopIndex = lines.findIndex((line) => trailingMarkers.has(line.trim()));
   const keptLines = stopIndex >= 0 ? lines.slice(0, stopIndex) : lines;
-  return keptLines.filter((line) => line.trim() !== 'Share').join('\n');
+  return keptLines.filter((line) => !['Share', '(opens in a new window)'].includes(line.trim())).join('\n');
 }
 
 function summaryFromText(text: string): string {
   const first = text.slice(0, 500).trim();
-  return first || 'No extractable text found.';
+  if (!first) return 'No extractable text found.';
+  if (text.length <= 500) return first;
+  const sentence = first.match(/^[\s\S]*[.!?。！？](?=\s|$)/)?.[0];
+  return sentence?.trim() || first.replace(/\s+\S*$/, '') + '…';
 }
 
 function looksLikeManualActionPage(text: string): boolean {
@@ -94,7 +98,6 @@ function looksLikeManualActionPage(text: string): boolean {
     'verify you are human',
     'checking if the site connection is secure',
     'access denied',
-    'cloudflare',
   ].some((hint) => normalized.includes(hint));
 }
 
@@ -104,16 +107,16 @@ function isTruthyFlag(args: Args, key: string): boolean {
 }
 
 async function captureWithBrowser(url: string, warnings: string[]): Promise<CaptureSnapshot> {
-  const browser = await chromium.launch({ headless: true });
+  const session = await openBrowserPage();
+  let keepPage = false;
   try {
-    const page = await browser.newPage({
-      userAgent:
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
-        'Chrome/122.0.0.0 Safari/537.36 ClipsmithWebCapture/0.2',
-      viewport: { width: 1365, height: 900 },
-    });
-    const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    const { page } = session;
+    const response = await navigateBrowser(session, url);
     const status = response?.status();
+    if (response?.headers()['cf-mitigated'] === 'challenge') {
+      keepPage = session.mode === 'chrome-cdp';
+      throw new Error(verificationMessage(session.mode));
+    }
     if (status && status >= 400) {
       throw new Error(`Navigation failed with HTTP ${status}`);
     }
@@ -135,7 +138,7 @@ async function captureWithBrowser(url: string, warnings: string[]): Promise<Capt
       })`);
     await page.waitForTimeout(500);
 
-    return await page.evaluate(`(() => {
+    const snapshot = await page.evaluate(`(() => {
       const removableSelector = [
         'script',
         'style',
@@ -159,7 +162,8 @@ async function captureWithBrowser(url: string, warnings: string[]): Promise<Capt
         document.querySelectorAll('article, main, [role="main"], .article, .post, .content'),
       );
       const body = document.body;
-      const selected =
+      const articleBody = document.querySelector('[data-article-body="true"], [itemprop="articleBody"], [data-toc-content]');
+      const selected = articleBody ||
         candidates
           .filter((candidate) => nodeText(candidate).length > 200)
           .sort((a, b) => nodeText(b).length - nodeText(a).length)[0] || body;
@@ -196,8 +200,13 @@ async function captureWithBrowser(url: string, warnings: string[]): Promise<Capt
         fullHtml: document.documentElement.outerHTML,
       };
     })()`);
+    if (looksLikeManualActionPage(snapshot.renderedText)) {
+      keepPage = session.mode === 'chrome-cdp';
+      warnings.push(verificationMessage(session.mode));
+    }
+    return { ...snapshot, browserMode: session.mode };
   } finally {
-    await browser.close();
+    await session.close({ keepPage });
   }
 }
 
@@ -241,6 +250,7 @@ async function main(): Promise<void> {
 
   const metadata = {
     capture_method: 'playwright',
+    browser_mode: snapshot.browserMode,
     requested_url: url,
     final_url: snapshot.canonicalUrl || url,
     title,
@@ -301,7 +311,7 @@ async function main(): Promise<void> {
         ],
         assets,
         warnings,
-        status: needsManualAction ? 'needs_manual_action' : text ? 'complete' : 'partial',
+        status: needsManualAction ? 'needs_manual_action' : text.length >= 500 ? 'complete' : 'partial',
       },
       null,
       2,

@@ -87,3 +87,11 @@ development-only assets.
 - [Inbox Integration](docs/inbox-integration.md)
 - [Release](RELEASE.md)
 - [Project Page](https://octopusgarage.github.io/clipsmith/)
+
+
+### Web browser diagnostics
+
+`clipsmith doctor --json` checks that Playwright and tsx resolve from the web skill.
+For browser setup and normal Chrome reuse, follow `skills/clipsmith-web/SKILL.md`.
+Both web capture and blog discovery use that provider-owned browser preference;
+a headless-only failure is not proof that interactive Chrome is blocked.

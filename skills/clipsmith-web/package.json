@@ -3,9 +3,13 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "playwright": "^1.61.1"
+    "playwright": "^1.61.1",
+    "tsx": "^4.23.15"
   },
   "engines": {
     "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test tests/capture.test.mjs"
   }
 }

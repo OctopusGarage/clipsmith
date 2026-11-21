@@ -52,6 +52,8 @@ Then inspect at least:
 
 The agent must judge:
 
+- browser-mode and verification claims match actual normal-browser inspection, not only a headless HTTP status
+- reused Chrome contexts retain their session and unrelated tabs
 - the article body is materially complete
 - major sections from the raw text are still present and in order
 - site chrome, newsletter blocks, related links, tables of contents, and footer

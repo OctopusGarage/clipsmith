@@ -1,5 +1,5 @@
 name: clipsmith-web
-description: Fetch a generic public web page and normalize it into a Clipsmith bundle.
+description: Capture a public web page with the configured browser runtime and normalize it into a Clipsmith bundle.
 executor: scripts/run.ts
 inputs:
   url:
