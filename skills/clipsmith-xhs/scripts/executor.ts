@@ -1,3 +1,4 @@
+import { createBackgroundPage } from "../../_shared/browser-runtime/scripts/cdp";
 import { chromium } from "playwright";
 import { createInterface } from "node:readline/promises";
 import { readFile, stat, unlink } from "node:fs/promises";
@@ -198,7 +199,7 @@ export async function execute(inputs: DownloadPostInputs, context?: ExecutorCont
     } else {
       log(`no existing Xiaohongshu tab found, opening new tab`);
     }
-    const page = xhsPage ?? (await browserContext.newPage());
+    const page = xhsPage ?? (await createBackgroundPage(browserContext));
     await installPageEvaluateRuntime(page);
 
     let postUrlInput = inputs.post_url?.trim();

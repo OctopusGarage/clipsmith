@@ -1,3 +1,4 @@
+import { createBackgroundPage } from "../../_shared/browser-runtime/scripts/cdp";
 import { chromium } from "playwright";
 import { createInterface } from "node:readline/promises";
 import { spawn } from "node:child_process";
@@ -96,7 +97,7 @@ export async function execute(
     try { const h = new URL(p.url()).hostname; return h.endsWith(".mp.weixin.qq.com") || h === "mp.weixin.qq.com"; } catch { return false; }
   }) ?? null;
   if (!page) {
-    page = await browserCtx.newPage();
+    page = await createBackgroundPage(browserCtx);
     log("[wechat] opened new tab");
   } else {
     log("[wechat] reusing existing WeChat tab");

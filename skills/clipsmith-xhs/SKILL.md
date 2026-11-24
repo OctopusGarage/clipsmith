@@ -104,7 +104,7 @@ fixture eval must not depend on network access.
 - Use browser automation only.
 - Do not use Xiaohongshu private APIs.
 - Reuse manual-login session via unified Chrome CDP startup:
-  `open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir="$HOME/.chrome-labali-no-proxy"`.
+  `open -g -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir="$HOME/.chrome-labali-no-proxy"`.
 - Optional cleanup: pass `--close_browser_on_success true` only when the CDP
   Chrome is dedicated to this automation run. The browser closes after a fully
   successful capture; failures and partial captures leave it open for manual
@@ -221,7 +221,7 @@ Comment export failure behavior:
 - Startup guidance:
   - check if CDP is responding: `curl -s http://localhost:9223/json/version`
   - if CDP is NOT responding → **auto-launch Chrome immediately** (no user prompt needed):
-    `open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir="$HOME/.chrome-labali-no-proxy"`
+    `open -g -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir="$HOME/.chrome-labali-no-proxy"`
     then wait 3 seconds and verify CDP responds before proceeding.
   - if Chrome with remote debugging is already running on the CDP port, reuse it — do not launch a new instance,
   - connect via CDP port,
@@ -251,3 +251,7 @@ Comment export failure behavior:
 | Video merge or comment export unclear | `references/architecture.md` | — |
 
 See Resources table above for conditional loads.
+
+## Background capture
+
+Keep the user's foreground app and keyboard focus unchanged. Launch dedicated Chrome with `open -g -na`, reuse the provider's existing tab, and create missing tabs through the shared `createBackgroundPage` helper (`Target.createTarget` with `background: true`). Do not use `newPage()`, `bringToFront()`, app activation, or OS-wide keyboard/mouse input for capture. A page-local DOM focus is not permission to activate the browser. If background interaction fails, report the step instead of silently switching to foreground input. Manual login remains a user-driven exception.

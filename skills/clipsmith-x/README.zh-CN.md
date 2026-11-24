@@ -40,7 +40,7 @@ npx tsx scripts/run.ts \
 Chrome 需要开启远程调试并已登录 X。一次性配置：
 
 ```bash
-open -na "Google Chrome" --args \
+open -g -na "Google Chrome" --args \
   --remote-debugging-port=9222 \
   --user-data-dir="$HOME/.chrome-labali"
 ```

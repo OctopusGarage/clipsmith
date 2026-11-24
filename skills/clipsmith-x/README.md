@@ -41,7 +41,7 @@ npx tsx scripts/run.ts \
 Chrome must be open with remote debugging. One-time setup:
 
 ```bash
-open -na "Google Chrome" --args \
+open -g -na "Google Chrome" --args \
   --remote-debugging-port=9222 \
   --user-data-dir="$HOME/.chrome-labali"
 ```

@@ -57,7 +57,7 @@ OCR 和评论。
 默认启动方式：
 
 ```bash
-open -na "Google Chrome" --args \
+open -g -na "Google Chrome" --args \
   --remote-debugging-port=9223 \
   --user-data-dir="$HOME/.chrome-labali-no-proxy"
 ```

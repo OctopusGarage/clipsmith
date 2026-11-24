@@ -1,3 +1,4 @@
+import { createBackgroundPage } from "../../_shared/browser-runtime/scripts/cdp";
 import { readModernPost, hasReadablePost } from "./post-dom.js";
 import { chromium, type ChromiumBrowser, type Page } from "playwright";
 import { createHash } from "node:crypto";
@@ -228,7 +229,7 @@ export async function execute(
       const u = p.url();
       return u.startsWith("https://x.com/") || u.startsWith("https://twitter.com/");
     });
-    let page = xPage ?? (await browser.contexts()[0].newPage());
+    let page = xPage ?? (await createBackgroundPage(browser.contexts()[0]));
 
     // Navigate to the canonical post URL. If the existing tab is already
     // there, we leave it alone to avoid a redundant round-trip.

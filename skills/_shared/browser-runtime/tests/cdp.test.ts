@@ -136,3 +136,46 @@ test("closeBrowserProcessOverCdp rejects when browser websocket URL is missing",
     /did not expose webSocketDebuggerUrl/
   );
 });
+
+test("background tab creation selects its own target without activating unrelated tabs", async () => {
+  const { createBackgroundPage } = await import("../scripts/cdp");
+  const unrelated = { id: "user-tab" };
+  const captured = { id: "capture-tab" };
+  const calls: unknown[] = [];
+  const browserSession = {
+    async send(method: string, params: unknown) { calls.push([method, params]); return { targetId: "capture-tab" }; },
+    async detach() {},
+  };
+  const context = {
+    browser: () => ({ newBrowserCDPSession: async () => browserSession }),
+    pages: () => [unrelated, captured],
+    async newCDPSession(page: typeof captured) {
+      return { send: async () => ({ targetInfo: { targetId: page.id } }), detach: async () => {} };
+    },
+  };
+  assert.equal(await createBackgroundPage(context), captured);
+  assert.deepEqual(calls, [["Target.createTarget", { url: "about:blank", background: true }]]);
+});
+
+ test("Chrome launch stays in the background and inherits the system proxy", async () => {
+  const { getChromeLaunchArgs } = await import("../scripts/cdp");
+  const args = getChromeLaunchArgs({port: "9223", userDataDir: "/tmp/capture-profile"});
+  assert.ok(args.indexOf("-g") < args.indexOf("--args"));
+  assert.ok(!args.includes("--no-proxy-server"));
+  assert.ok(args.includes("--user-data-dir=/tmp/capture-profile"));
+ });
+
+test("unattached background targets are closed on timeout without a foreground fallback", async () => {
+  const { createBackgroundPage } = await import("../scripts/cdp");
+  const calls: string[] = [];
+  const session = {
+    async send(method: string) { calls.push(method); return {targetId: "orphan"}; },
+    async detach() { calls.push("detach"); },
+  };
+  await assert.rejects(createBackgroundPage({
+    browser: () => ({newBrowserCDPSession: async () => session}),
+    pages: () => [],
+    newCDPSession: async () => session,
+  }, 0), /did not attach/);
+  assert.deepEqual(calls, ["Target.createTarget", "Target.closeTarget", "detach"]);
+});

@@ -84,7 +84,7 @@ the source repo. Packaged skill installs may omit eval fixtures and baselines.
 
 - Use browser automation only (Playwright over CDP).
 - Reuse authenticated Chrome session via CDP startup:
-  `open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir="$HOME/.chrome-labali-no-proxy"`
+  `open -g -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir="$HOME/.chrome-labali-no-proxy"`
 - Extract article content from WeChat DOM: title, account name, author, publish time, content text, images.
 - Images are lazy-loaded via `data-src` — always prefer `data-src` over `src`.
 - Download only images from `mmbiz.qpic.cn` (skip avatars from `mmbiz.qlogo.cn`).
@@ -149,3 +149,7 @@ A run is successful only when all conditions hold:
 |------|-----------|
 | Always — at skill invocation start | `references/plan.md` |
 | Image extraction returns 0 images | Check `data-src` vs `src`; check if page scrolled enough for lazy load |
+
+## Background capture
+
+Keep the user's foreground app and keyboard focus unchanged. Launch dedicated Chrome with `open -g -na`, reuse the provider's existing tab, and create missing tabs through the shared `createBackgroundPage` helper (`Target.createTarget` with `background: true`). Do not use `newPage()`, `bringToFront()`, app activation, or OS-wide keyboard/mouse input for capture. A page-local DOM focus is not permission to activate the browser. If background interaction fails, report the step instead of silently switching to foreground input. Manual login remains a user-driven exception.

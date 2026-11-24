@@ -58,7 +58,7 @@ risk checks, carousel ordering, media download, OCR, and comments.
 Default startup:
 
 ```bash
-open -na "Google Chrome" --args \
+open -g -na "Google Chrome" --args \
   --remote-debugging-port=9223 \
   --user-data-dir="$HOME/.chrome-labali-no-proxy"
 ```

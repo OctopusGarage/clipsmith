@@ -4,7 +4,7 @@
 
 | Situation | Action |
 |-----------|--------|
-| CDP not responding on port 9223 | Auto-launch Chrome: `open -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir=~/.chrome-labali-no-proxy`; wait 3s; verify; retry once |
+| CDP not responding on port 9223 | Auto-launch Chrome: `open -g -na "Google Chrome" --args --remote-debugging-port=9223 --user-data-dir=~/.chrome-labali-no-proxy`; wait 3s; verify; retry once |
 | Article requires WeChat login | Prompt user to log in manually in the opened browser window; do not proceed until confirmed |
 | Article title empty | Use `unknown` as title in folder name; proceed with download |
 | No images found in content | Check if `data-src` attributes are present; try scrolling page to trigger lazy load |

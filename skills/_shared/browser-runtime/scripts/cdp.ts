@@ -96,6 +96,18 @@ export async function waitForCdpEndpoint(
   return false;
 }
 
+export function getChromeLaunchArgs(args: Pick<EnsureCdpChromeArgs, "port" | "userDataDir" | "proxyMode" | "proxyServer">): string[] {
+  return [
+    "-g",
+    "-na",
+    "Google Chrome",
+    "--args",
+    `--remote-debugging-port=${args.port}`,
+    `--user-data-dir=${args.userDataDir}`,
+    ...getChromeProxyArgs(args.proxyMode, args.proxyServer),
+  ];
+}
+
 export async function ensureCdpChrome(args: EnsureCdpChromeArgs): Promise<void> {
   if (await probeCdpEndpoint(args.port, args)) {
     args.log(`Reuse Chrome remote debugging session on :${args.port}`);
@@ -109,14 +121,7 @@ export async function ensureCdpChrome(args: EnsureCdpChromeArgs): Promise<void> 
     );
   }
 
-  const chromeArgs = [
-    "-na",
-    "Google Chrome",
-    "--args",
-    `--remote-debugging-port=${args.port}`,
-    `--user-data-dir=${args.userDataDir}`,
-    ...getChromeProxyArgs(args.proxyMode, args.proxyServer),
-  ];
+  const chromeArgs = getChromeLaunchArgs(args);
   args.log(`Launch Chrome remote debugging session: open ${chromeArgs.join(" ")}`);
   await execFileAsync("open", chromeArgs, {
     maxBuffer: 4 * 1024 * 1024,
@@ -189,4 +194,45 @@ export async function closeBrowserProcessOverCdp(
       resolveClose();
     };
   });
+}
+
+interface TargetSession {
+  send(method: "Target.createTarget", params: {url: string; background: boolean}): Promise<{targetId: string}>;
+  send(method: "Target.getTargetInfo"): Promise<{targetInfo: {targetId: string}}>;
+  send(method: "Target.closeTarget", params: {targetId: string}): Promise<unknown>;
+  detach(): Promise<void>;
+}
+
+/** Create only a background target; never fall back to focus-stealing newPage(). */
+export async function createBackgroundPage<Page>(context: {
+  browser(): {newBrowserCDPSession(): Promise<TargetSession>} | null;
+  pages(): Page[];
+  newCDPSession(page: Page): Promise<TargetSession>;
+}, timeoutMs = 10000): Promise<Page> {
+  const browser = context.browser();
+  if (!browser) throw new Error("Background tab creation requires a CDP browser");
+  const session = await browser.newBrowserCDPSession();
+  let targetId: string | undefined;
+  try {
+    ({targetId} = await session.send("Target.createTarget", {url: "about:blank", background: true}));
+    const deadline = Date.now() + timeoutMs;
+    do {
+      for (const page of context.pages()) {
+        const pageSession = await context.newCDPSession(page);
+        try {
+          const {targetInfo} = await pageSession.send("Target.getTargetInfo");
+          if (targetInfo.targetId === targetId) return page;
+        } finally {
+          await pageSession.detach();
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, 50));
+    } while (Date.now() < deadline);
+    throw new Error("Background tab did not attach before the timeout");
+  } catch (error) {
+    if (targetId) await session.send("Target.closeTarget", {targetId}).catch(() => undefined);
+    throw error;
+  } finally {
+    await session.detach();
+  }
 }
