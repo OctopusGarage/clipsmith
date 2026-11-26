@@ -9,6 +9,13 @@ import { join } from 'node:path';
 import { chromium } from 'playwright';
 const exec = promisify(execFile);
 
+function assertBackgroundTarget(stderr) {
+  const creations = stderr.split('\n').filter(line => line.includes('SEND') && line.includes('"method":"Target.createTarget"'));
+  assert.equal(creations.length, 1, 'one capture tab is created');
+  assert.match(creations[0], /"background":true/, 'CDP tab creation must preserve the selected tab');
+  assert.doesNotMatch(stderr, /"method":"(?:Target.activateTarget|Page.bringToFront)"/, 'operations must not activate a tab');
+}
+
 async function capture(html, inspect, headers = {}, options = {}) {
   const server = createServer((_req, res) => {
     if (options.resolveChallenge && _req.url === '/destination') {
@@ -30,7 +37,7 @@ async function capture(html, inspect, headers = {}, options = {}) {
   try {
     const url = `http://127.0.0.1:${server.address().port}/article`;
     await inspect((args) => exec('npx', args || ['tsx', 'scripts/run.ts', '--url', url, '--output_dir', output],
-      { cwd: new URL('..', import.meta.url).pathname.replace(/\/tests\/$/, '/'), timeout: 30000, env: {...process.env, CLIPSMITH_WEB_CDP_URL: options.cdpUrl || '', CLIPSMITH_WEB_BROWSER_CONFIG: join(output, 'browser.json')} }), {url,output});
+      { cwd: new URL('..', import.meta.url).pathname.replace(/\/tests\/$/, '/'), timeout: 30000, env: {...process.env, DEBUG: options.traceProtocol ? 'pw:protocol' : '', CLIPSMITH_WEB_CDP_URL: options.cdpUrl || '', CLIPSMITH_WEB_BROWSER_CONFIG: join(output, 'browser.json')} }), {url,output});
   } finally { server.close(); await rm(output, {recursive:true, force:true}); }
 }
 
@@ -94,13 +101,19 @@ test('CDP capture reuses the existing browser context and preserves other tabs',
       await run(['tsx','scripts/browser.ts','set',endpoint]);
       const config = JSON.parse((await run(['tsx','scripts/browser.ts','get'])).stdout);
       assert.equal(config.cdp_url, endpoint);
-      const {stdout} = await run(); const dir = JSON.parse(stdout).bundle_dir;
+      const check = await run(['tsx','scripts/browser.ts','check']);
+      assertBackgroundTarget(check.stderr);
+      assert.equal(context.pages().length, 1, 'runtime check tab is closed');
+      const {stdout, stderr} = await run(); const dir = JSON.parse(stdout).bundle_dir;
+      assertBackgroundTarget(stderr);
       const meta = JSON.parse(await readFile(join(dir,'capture.json'),'utf8'));
       assert.equal(meta.status, 'complete');
       assert.equal(keep.isClosed(), false);
       assert.equal(await keep.title(), 'Keep this tab');
       assert.equal(context.pages().length, 1, 'capture tab is closed');
-      const discovery = JSON.parse((await run(['tsx','scripts/discover.ts',url,'/post/'])).stdout);
+      const discovered = await run(['tsx','scripts/discover.ts',url,'/post/']);
+      assertBackgroundTarget(discovered.stderr);
+      const discovery = JSON.parse(discovered.stdout);
       assert.equal(discovery.items.length, 1, 'footer navigation is excluded from discovery');
       assert.equal(discovery.items[0].title, 'A useful article');
       assert.equal(context.pages().length, 1, 'discovery tab is closed');
@@ -137,7 +150,7 @@ test('CDP capture reuses the existing browser context and preserves other tabs',
       await assert.rejects(() => run(['tsx','scripts/browser.ts','set','http://remote.example:9222']), /loopback/);
       await run(['tsx','scripts/browser.ts','reset']);
       assert.equal(JSON.parse((await run(['tsx','scripts/browser.ts','get'])).stdout).mode,'headless');
-    }, {}, {requireCookie:true});
+    }, {}, {requireCookie:true,traceProtocol:true});
   } finally { await context.close(); await rm(profile,{recursive:true,force:true}); }
 });
 

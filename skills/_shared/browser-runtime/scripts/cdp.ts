@@ -131,7 +131,7 @@ export async function ensureCdpChrome(args: EnsureCdpChromeArgs): Promise<void> 
   const ready = await waitForCdpEndpoint(args.port, args.timeoutMs ?? 20000, args);
   if (!ready) {
     throw new Error(
-      `Chrome CDP endpoint not ready on :${args.port} after launch. Start manually: open -na "Google Chrome" --args --remote-debugging-port=${args.port} --user-data-dir=${args.userDataDir}`
+      `Chrome CDP endpoint not ready on :${args.port} after launch. Start manually: open -g -na "Google Chrome" --args --remote-debugging-port=${args.port} --user-data-dir=${args.userDataDir}`
     );
   }
 }

@@ -2,6 +2,7 @@ import { readFile, mkdir, writeFile, rename, unlink } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { createBackgroundPage } from '../../_shared/browser-runtime/scripts/cdp';
 
 export function browserConfigPath(): string {
   return process.env.CLIPSMITH_WEB_BROWSER_CONFIG ||
@@ -104,7 +105,7 @@ export async function openBrowserPage() {
     // Use the existing context to retain its browser identity and site session.
     const context = cdp ? browser.contexts()[0] : await browser.newContext({viewport:{width:1365,height:900}});
     if (!context) throw new Error('Connected Chrome has no reusable browser context.');
-    const page = await context.newPage();
+    const page = cdp ? await createBackgroundPage(context) : await context.newPage();
     return {
       page,
       mode: cdp ? 'chrome-cdp' : 'headless',

@@ -65,6 +65,22 @@ runtime skill installs.
 
 The only supported provider execution mode is `skill`.
 
+## Browser Focus
+
+- Preserve the user's foreground app, selected browser tab, and keyboard focus.
+- Prefer headless capture when supported. For authenticated Chrome, reuse CDP
+  and create tabs with the shared `createBackgroundPage` helper; launch dedicated
+  Chrome with `open -g -na`. This applies to capture, discovery, checks, and debug
+  scripts as well as agent-driven recovery.
+- Do not call `bringToFront()`, activate apps, or use global keyboard/mouse input
+  as an automatic fallback. Leave verification tabs in the background and report
+  any step that requires user interaction.
+- If CDP cannot perform a required desktop interaction, consider
+  [agent-desktop](https://github.com/vercel-labs/agent-desktop) in its default
+  accessibility mode. Check its installed version's help and permissions first;
+  do not use `--headed` or physical input to bypass a background-mode failure.
+  Manual login or another unavoidable foreground action remains user-driven.
+
 ## Git Rules
 
 Do not run `git commit`, `git push`, tagging, release publishing, or history

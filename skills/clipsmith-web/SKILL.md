@@ -38,6 +38,22 @@ own tab and disconnect without stopping Chrome. Normal Chrome is allowed a bound
 A remaining verification challenge leaves that tab open for inspection and interaction before retrying. A configured but unavailable endpoint
 fails visibly rather than silently changing browser mode.
 
+Preserve the user's foreground app, selected tab, and keyboard focus. Headless
+capture remains the default. In CDP mode, capture, discovery, and `check` create
+their own background tab through the shared `createBackgroundPage` helper
+(`Target.createTarget` with `background: true`). Never use `newPage()` in CDP
+mode, `bringToFront()`, app activation, or global keyboard/mouse input. If a
+dedicated Chrome must be started, use `open -g -na`, retaining the correct CDP
+port and profile. A failed background operation must not trigger a foreground
+fallback. Leave verification tabs in the background for user-driven login or
+verification when necessary.
+
+If browser tools cannot perform a required desktop interaction, consider
+[agent-desktop](https://github.com/vercel-labs/agent-desktop) in its default
+accessibility mode after checking the installed version's help and permissions.
+Do not use `--headed` or physical input. If that mode cannot complete the step,
+report the limitation and preserve partial output.
+
 Then run the bundled browser extractor:
 
 ```bash
@@ -52,9 +68,10 @@ cannot truncate the body. Text shorter than 500 characters is marked `partial`
 for review. A challenge in an isolated headless browser does not prove that normal
 Chrome is blocked. Inspect the same URL in the available normal browser; if it
 opens successfully, configure CDP and retry capture and discovery. If the actual
-normal-browser page asks for verification, interact with that visible page using
-available browser tools. Report a manual blocker only after inspecting the real
-page and verifying that agent interaction cannot complete it. Do not retry the
+normal-browser page asks for verification, inspect and interact with that page
+using background browser tools without activating Chrome. Report a manual blocker
+only after inspecting the real page and verifying that agent interaction cannot
+complete it. Do not retry the
 same isolated headless session and call that a normal-browser check.
 
 Use `--preserve_full_raw` only when debugging a difficult capture or when the
